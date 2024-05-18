@@ -1,4 +1,4 @@
-# Roc platform template for Golang
+# Roc platform template for Go
 
 This is a template for getting started with a [roc platform](https://www.roc-lang.org/platforms) using [Go](https://golang.org).
 
