@@ -1,11 +1,9 @@
 platform ""
-    requires {} { main : MainForHost }
+    requires {} { main : Str }
     exposes []
     packages {}
     imports []
     provides [mainForHost]
 
-MainForHost : Str
-
-mainForHost : MainForHost
+mainForHost : Str
 mainForHost = main
