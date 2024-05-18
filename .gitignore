@@ -6,3 +6,5 @@ app
 *.a
 *.tar.br
 *.tar.gz
+
+host/libhost.h
