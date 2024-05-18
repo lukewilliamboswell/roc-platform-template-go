@@ -1,0 +1,8 @@
+generated-docs/
+
+build
+app
+
+*.a
+*.tar.br
+*.tar.gz
