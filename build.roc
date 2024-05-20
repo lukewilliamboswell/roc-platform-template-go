@@ -6,6 +6,11 @@ import cli.Cmd
 import cli.Task exposing [Task]
 
 main =
+
+    # generate glue for builtins and platform
+    Cmd.exec "roc" ["glue", "glue.roc", "host/", "platform/main.roc"]
+        |> Task.mapErr! ErrGeneratingGlue
+
     # get the native target
     native = getNativeTarget!
 
@@ -81,4 +86,3 @@ getNativeTarget =
         (Linux, Arm64) -> Task.ok LinuxArm64
         (Linux, X64) -> Task.ok LinuxX64
         _ -> Task.err (UnsupportedNative os arch)
-        

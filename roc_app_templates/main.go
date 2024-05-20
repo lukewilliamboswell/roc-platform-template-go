@@ -1,18 +1,19 @@
-package roc
+package roc_app
 
-//#include "roc.h"
+//#include "main.h"
 import "C"
 
 import (
 	"os"
 	"fmt"
 	"unsafe"
+	"host/roc_std"
 )
 
-func Main() RocStr {
+func Main() roc_std.RocStr {
 	var str C.struct_RocStr
 	C.roc__mainForHost_1_exposed_generic(&str)
-	return *(*RocStr)(unsafe.Pointer(&str))
+	return *(*roc_std.RocStr)(unsafe.Pointer(&str))
 }
 
 //export roc_alloc
@@ -32,9 +33,9 @@ func roc_dealloc(ptr unsafe.Pointer, alignment int) {
 
 //export roc_dbg
 func roc_dbg(loc *C.struct_RocStr, msg *C.struct_RocStr, src *C.struct_RocStr) {
-	locStr := *(*RocStr)(unsafe.Pointer(loc))
-	msgStr := *(*RocStr)(unsafe.Pointer(msg))
-	srcStr := *(*RocStr)(unsafe.Pointer(src))
+	locStr := *(*roc_std.RocStr)(unsafe.Pointer(loc))
+	msgStr := *(*roc_std.RocStr)(unsafe.Pointer(msg))
+	srcStr := *(*roc_std.RocStr)(unsafe.Pointer(src))
 
 	if srcStr == msgStr {
 		fmt.Fprintf(os.Stderr, "[%s] {%s}\n", locStr, msgStr)
