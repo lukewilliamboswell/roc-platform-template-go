@@ -1,21 +1,12 @@
 #include "roc_std.h"
 
-union ResultVoidI32Union {
-    long int exit_code;
-};
-
 struct ResultVoidI32 {
-    union ResultVoidI32Union payload;
+    union {long int exit_code;} payload;
     unsigned char disciminant;
 };
 
-
-union ResultVoidStrUnion {
-    struct RocStr str;
-};
-
 struct ResultVoidStr {
-    union ResultVoidStrUnion payload;
+    union {struct RocStr str;} payload;
     unsigned char disciminant;
 };
 
