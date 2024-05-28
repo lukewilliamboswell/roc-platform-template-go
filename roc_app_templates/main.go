@@ -1,13 +1,16 @@
 package roc_app
 
-//#include "main.h"
+/*
+#cgo LDFLAGS: -L.. -lapp
+#include "./main.h"
+*/
 import "C"
 
 import (
-	"os"
 	"fmt"
-	"unsafe"
 	"host/roc_std"
+	"os"
+	"unsafe"
 )
 
 func Main() roc_std.RocStr {

@@ -4,39 +4,62 @@ app [main] {
 
 import cli.Cmd
 import cli.Task exposing [Task]
+import cli.File
+import cli.Path
 
+main : Task {} _
 main =
-
-    # generate glue for builtins and platform
     Cmd.exec "roc" ["glue", "glue.roc", "host/", "platform/main.roc"]
-        |> Task.mapErr! ErrGeneratingGlue
+        |> Task.mapErr! \_ -> ErrGlue
 
-    # get the native target
-    native = getNativeTarget!
+    target = getNativeTarget
+        |> Task.mapErr! \_ -> BuildForLegacyLinker
+    if target == LinuxX64 then
+        buildForSurgicalLinker
+            |> Task.mapErr! \_ -> ErrBuildForLegacyLinker
+    else
+        buildForLegacyLinker target
+            |> Task.mapErr! \_ -> BuildForLegacyLinker
 
-    # build the target
-    buildGoTarget! { target: native, hostDir: "host", platformDir: "platform" }
+buildForSurgicalLinker : Task {} _
+buildForSurgicalLinker =
+    buildLibappSo!
+    buildDynhost!
+    preprocess!
 
-buildGoTarget : { target : RocTarget, hostDir : Str, platformDir : Str } -> Task {} _
-buildGoTarget = \{ target, hostDir, platformDir } ->
+buildLibappSo =
+    Cmd.exec "roc" ("build --lib app.roc --output host/libapp.so" |> Str.split " ") 
+        |> Task.mapErr!  \_ -> BuildLibApp
 
-    (goos, goarch, prebuiltBinary) =
-        when target is
-            MacosArm64 -> ("darwin", "arm64", "macos-arm64.a")
-            MacosX64 -> ("darwin", "amd64", "macos-x64")
-            LinuxArm64 -> ("linux", "arm64", "linux-arm64.a")
-            LinuxX64 -> ("linux", "amd64", "linux-x64.a")
-            WindowsArm64 -> ("windows", "arm64", "windows-arm64.a")
-            WindowsX64 -> ("windows", "amd64", "windows-x64")
-
+buildDynhost =
     Cmd.new "go"
-        |> Cmd.envs [("GOOS", goos), ("GOARCH", goarch), ("CC", "zig cc")]
-        |> Cmd.args ["build", "-C", hostDir, "-buildmode=c-archive", "-o", "libhost.a"]
+        |> Cmd.args ("build -C host -buildmode pie -o ../platform/dynhost" |> Str.split " ")
+        |> Cmd.envs [("GOOS", "linux"), ("GOARCH", "amd64"), ("CC", "zig cc")]
         |> Cmd.status
-        |> Task.mapErr! \err -> BuildErr goos goarch (Inspect.toStr err)
+        |> Task.mapErr! \_ -> BuildDynhost
 
-    Cmd.exec "cp" ["$(hostDir)/libhost.a", "$(platformDir)/$(prebuiltBinary)"]
-        |> Task.mapErr! \err -> CpErr (Inspect.toStr err)
+preprocess =
+    Cmd.exec "roc" ("preprocess-host app.roc" |> Str.split " ")
+        |> Task.mapErr!  \_ -> BuildPreprocess
+    # roc preprocess creates libapp.so, that is not needed.
+    File.delete! ("platform/libapp.so" |> Path.fromStr)
+
+
+buildForLegacyLinker = \target ->
+    (goos, goarch, zigTarget, prebuiltBinary) =
+        when target is
+            MacosArm64 -> ("darwin", "arm64", "aarch64-macos", "macos-arm64.a")
+            MacosX64 -> ("darwin", "amd64", "x86_64-macos", "macos-x64.a")
+            LinuxArm64 -> ("linux", "arm64", "aarch64-linux", "linux-arm64.a")
+            LinuxX64 -> ("linux", "amd64", " x86_64-linux", "linux-x64.a")
+            WindowsArm64 -> ("windows", "arm64", "aarch64-windows", "windows-arm64.obj")
+            WindowsX64 -> ("windows", "amd64", "x86_64-windows", "windows-x64.obj")
+            
+    Cmd.new "go"
+        |> Cmd.envs [("GOOS", goos), ("GOARCH", goarch), ("CC", "zig cc -target $(zigTarget)"), ("CGO_ENABLED", "1")]
+        |> Cmd.args ("build -C host -buildmode c-archive -o ../platform/$(prebuiltBinary) -tags legacy,netgo" |> Str.split " ")
+        |> Cmd.status
+        |> Task.mapErr! \err -> BuildErr target (Inspect.toStr err)
 
 RocTarget : [
     MacosArm64,

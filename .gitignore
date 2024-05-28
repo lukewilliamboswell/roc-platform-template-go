@@ -2,11 +2,16 @@ generated-docs/
 
 build
 app
+dynhost
 
 *.a
 *.tar.br
 *.tar.gz
 *.ll
+*.so
+*.h
+*.rh
+*.rm
 
 host/libhost.h
 
