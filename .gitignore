@@ -11,5 +11,4 @@ app
 host/libhost.h
 
 # generated files
-host/roc_std/
-host/roc_app/
+host/roc
