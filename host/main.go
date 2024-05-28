@@ -1,8 +1,5 @@
 package main
 
-//#cgo CFLAGS: -Wno-main-return-type
-import "C"
-
 import (
 	"fmt"
 
@@ -10,8 +7,7 @@ import (
 	"host/roc_app"
 )
 
-//export main
-func main() {
+func entry() {
 	var foo = roc_app.Main()
 
 	fmt.Print(foo)
