@@ -13,10 +13,10 @@ makeGlue = \_ -> Ok staticFiles
 ## These are always included, and don't depend on the specifics of the app.
 staticFiles : List File
 staticFiles =
-    import "roc_app_templates/main.go" as appModule : Str
-    import "roc_app_templates/main.h" as appHeader : Str
+    import "roc_app_templates/app.go" as appModule : Str
+    import "roc_app_templates/app.h" as appHeader : Str
 
     List.concat Go.builtins [
-        { name: "roc_app/main.go", content: appModule },
-        { name: "roc_app/main.h", content: appHeader },
+        { name: "roc/app.go", content: appModule },
+        { name: "roc/app.h", content: appHeader },
     ]
