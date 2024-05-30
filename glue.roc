@@ -1,6 +1,6 @@
 app [makeGlue] {
     pf: platform "https://github.com/lukewilliamboswell/roc/releases/download/test/olBfrjtI-HycorWJMxdy7Dl2pcbbBoJy4mnSrDtRrlI.tar.br",
-    glue: "https://github.com/lukewilliamboswell/roc-glue-code-gen/releases/download/0.1.0/NprKi63CKBinQjoke2ttsOTHmjmsrmsILzRgzlds02c.tar.br",
+    glue: "https://github.com/lukewilliamboswell/roc-glue-code-gen/releases/download/0.2.0/UxzK668CtOpuhc_ipLgFC60pKqA7BVskJlHjEt7Snrg.tar.br",
 }
 
 import pf.Types exposing [Types]
