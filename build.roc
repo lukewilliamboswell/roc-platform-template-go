@@ -4,31 +4,58 @@ app [main] {
 
 import cli.Cmd
 import cli.Stdout
+import cli.Env
 
 main =
-    buildForSurgicalLinker!
+    {os, arch} = Env.platform!
+
+    buildForSurgicalLinker! os arch
     buildForLegacyLinker!
 
 exampleFile = "examples/hello-world.roc"
 
-buildForSurgicalLinker : Task {} _
-buildForSurgicalLinker =
-    buildLibappSo!
-    buildDynhost!
-    preprocess!
+buildForSurgicalLinker : _, _ -> Task {} _
+buildForSurgicalLinker = \os, arch ->
+    buildLibappDylib! os
+    buildDynhost! os arch
+    preprocess! os
 
-buildLibappSo =
-    Cmd.exec! "roc" ("build --lib $(exampleFile) --output host/libapp.so" |> Str.split " ")
+buildLibappDylib = \os ->
+    when os is
+        LINUX -> Cmd.exec! "roc" ("build --lib $(exampleFile) --output host/libapp.so" |> Str.splitOn " ")
+        MACOS -> Cmd.exec! "roc" ("build --lib $(exampleFile) --output host/libapp.dylib" |> Str.splitOn " ")
+        WINDOWS -> Cmd.exec! "roc" ("build --lib $(exampleFile) --output host/app.lib" |> Str.splitOn " ")
+        OTHER str -> crash "unreachable - unkown os $(str)"
 
-buildDynhost =
+buildDynhost = \os, arch ->
+
+    goos =
+        when os is
+            LINUX -> "linux"
+            MACOS -> "darwin"
+            WINDOWS -> "windows"
+            OTHER str -> crash "unreachable - unkown os $(str)"
+
+    goarch =
+        when arch is
+            X86 -> "386"
+            X64 -> "amd64"
+            ARM -> "arm"
+            AARCH64 -> "arm64"
+            OTHER str -> crash "unreachable - unkown arch $(str)"
+
     Cmd.new "go"
-        |> Cmd.args ("build -C host -buildmode pie -o ../platform/dynhost" |> Str.split " ")
-        |> Cmd.envs [("GOOS", "linux"), ("GOARCH", "amd64"), ("CC", "zig cc")]
+        |> Cmd.args ("build -C host -buildmode pie -o ../platform/dynhost" |> Str.splitOn " ")
+        |> Cmd.envs [("GOOS", goos), ("GOARCH", goarch), ("CC", "zig cc"), ("CGO_ENABLED", "1")]
         |> Cmd.status
-        |> Task.mapErr! \_ -> BuildDynhost
+        |> Task.mapErr BuildDynhost
 
-preprocess =
-    Cmd.exec! "roc" ["preprocess-host", "platform/dynhost", "platform/main.roc", "host/libapp.so"]
+preprocess = \os ->
+    when os is
+        LINUX -> Cmd.exec! "roc" ["preprocess-host", "platform/dynhost", "platform/main.roc", "host/libapp.so"]
+        MACOS -> Cmd.exec! "roc" ["preprocess-host", "platform/dynhost", "platform/main.roc", "host/libapp.dylib"]
+        WINDOWS -> Cmd.exec! "roc" ["preprocess-host", "platform/dynhost", "platform/main.roc", "host/app.lib"]
+        OTHER str -> crash "unreachable - unkown os $(str)"
 
 buildForLegacyLinker : Task {} _
 buildForLegacyLinker =
@@ -48,9 +75,9 @@ buildDotA = \target ->
             WindowsArm64 -> ("windows", "arm64", "aarch64-windows", "windows-arm64.obj")
             WindowsX64 -> ("windows", "amd64", "x86_64-windows", "windows-x64.obj")
     Stdout.line! "build host for $(Inspect.toStr target)"
+
     Cmd.new "go"
         |> Cmd.envs [("GOOS", goos), ("GOARCH", goarch), ("CC", "zig cc -target $(zigTarget)"), ("CGO_ENABLED", "1")]
-        |> Cmd.args ("build -C host -buildmode c-archive -o ../platform/$(prebuiltBinary) -tags legacy,netgo" |> Str.split " ")
+        |> Cmd.args ("build -C host -buildmode c-archive -o ../platform/$(prebuiltBinary) -tags legacy,netgo" |> Str.splitOn " ")
         |> Cmd.status
         |> Task.mapErr! \err -> BuildErr target (Inspect.toStr err)
-
