@@ -46,7 +46,7 @@ buildDynhost = \os, arch ->
 
     Cmd.new "go"
         |> Cmd.args ("build -C host -buildmode pie -o ../platform/dynhost" |> Str.splitOn " ")
-        |> Cmd.envs [("GOOS", goos), ("GOARCH", goarch), ("CC", "zig cc")]
+        |> Cmd.envs [("GOOS", goos), ("GOARCH", goarch), ("CC", "zig cc"), ("CGO_ENABLED", "1")]
         |> Cmd.status
         |> Task.mapErr BuildDynhost
 
