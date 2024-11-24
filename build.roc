@@ -3,81 +3,54 @@ app [main] {
 }
 
 import cli.Cmd
+import cli.Stdout
 
 main =
+    buildForSurgicalLinker!
+    buildForLegacyLinker!
 
-    # get the native target
-    native = getNativeTarget!
+exampleFile = "examples/hello-world.roc"
 
-    # build the target
-    buildGoTarget! { target: native, hostDir: "host", platformDir: "platform" }
+buildForSurgicalLinker : Task {} _
+buildForSurgicalLinker =
+    buildLibappSo!
+    buildDynhost!
+    preprocess!
 
-buildGoTarget : { target : RocTarget, hostDir : Str, platformDir : Str } -> Task {} _
-buildGoTarget = \{ target, hostDir, platformDir } ->
+buildLibappSo =
+    Cmd.exec! "roc" ("build --lib $(exampleFile) --output host/libapp.so" |> Str.split " ")
 
-    (goos, goarch, prebuiltBinary) =
-        when target is
-            MacosArm64 -> ("darwin", "arm64", "macos-arm64.a")
-            MacosX64 -> ("darwin", "amd64", "macos-x64")
-            LinuxArm64 -> ("linux", "arm64", "linux-arm64.a")
-            LinuxX64 -> ("linux", "amd64", "linux-x64.a")
-            WindowsArm64 -> ("windows", "arm64", "windows-arm64.a")
-            WindowsX64 -> ("windows", "amd64", "windows-x64")
-
+buildDynhost =
     Cmd.new "go"
-        |> Cmd.envs [("GOOS", goos), ("GOARCH", goarch), ("CC", "zig cc")]
-        |> Cmd.args ["build", "-C", hostDir, "-buildmode=c-archive", "-o", "libhost.a"]
+        |> Cmd.args ("build -C host -buildmode pie -o ../platform/dynhost" |> Str.split " ")
+        |> Cmd.envs [("GOOS", "linux"), ("GOARCH", "amd64"), ("CC", "zig cc")]
         |> Cmd.status
-        |> Task.mapErr! \err -> BuildErr goos goarch (Inspect.toStr err)
+        |> Task.mapErr! \_ -> BuildDynhost
 
-    Cmd.exec "cp" ["$(hostDir)/libhost.a", "$(platformDir)/$(prebuiltBinary)"]
-        |> Task.mapErr! \err -> CpErr (Inspect.toStr err)
+preprocess =
+    Cmd.exec! "roc" ["preprocess-host", "platform/dynhost", "platform/main.roc", "host/libapp.so"]
 
-RocTarget : [
-    MacosArm64,
-    MacosX64,
-    LinuxArm64,
-    LinuxX64,
-    WindowsArm64,
-    WindowsX64,
-]
+buildForLegacyLinker : Task {} _
+buildForLegacyLinker =
+    [MacosArm64, MacosX64, LinuxArm64, LinuxX64, WindowsArm64, WindowsX64]
+        |> List.map \target -> buildDotA target
+        |> Task.sequence
+        |> Task.map \_ -> {}
+        |> Task.mapErr! \_ -> BuildForLegacyLinker
 
-getNativeTarget : Task RocTarget _
-getNativeTarget =
+buildDotA = \target ->
+    (goos, goarch, zigTarget, prebuiltBinary) =
+        when target is
+            MacosArm64 -> ("darwin", "arm64", "aarch64-macos", "macos-arm64.a")
+            MacosX64 -> ("darwin", "amd64", "x86_64-macos", "macos-x64.a")
+            LinuxArm64 -> ("linux", "arm64", "aarch64-linux", "linux-arm64.a")
+            LinuxX64 -> ("linux", "amd64", " x86_64-linux", "linux-x64.a")
+            WindowsArm64 -> ("windows", "arm64", "aarch64-windows", "windows-arm64.obj")
+            WindowsX64 -> ("windows", "amd64", "x86_64-windows", "windows-x64.obj")
+    Stdout.line! "build host for $(Inspect.toStr target)"
+    Cmd.new "go"
+        |> Cmd.envs [("GOOS", goos), ("GOARCH", goarch), ("CC", "zig cc -target $(zigTarget)"), ("CGO_ENABLED", "1")]
+        |> Cmd.args ("build -C host -buildmode c-archive -o ../platform/$(prebuiltBinary) -tags legacy,netgo" |> Str.split " ")
+        |> Cmd.status
+        |> Task.mapErr! \err -> BuildErr target (Inspect.toStr err)
 
-    archFromStr = \bytes ->
-        when Str.fromUtf8 bytes is
-            Ok str if str == "arm64\n" -> Arm64
-            Ok str if str == "x86_64\n" -> X64
-            Ok str -> UnsupportedArch str
-            _ -> crash "invalid utf8 from uname -m"
-
-    arch =
-        Cmd.new "uname"
-            |> Cmd.arg "-m"
-            |> Cmd.output
-            |> Task.map .stdout
-            |> Task.map archFromStr
-            |> Task.mapErr! \err -> ErrGettingNativeArch (Inspect.toStr err)
-
-    osFromStr = \bytes ->
-        when Str.fromUtf8 bytes is
-            Ok str if str == "Darwin\n" -> Macos
-            Ok str if str == "Linux\n" -> Linux
-            Ok str -> UnsupportedOS str
-            _ -> crash "invalid utf8 from uname -s"
-
-    os =
-        Cmd.new "uname"
-            |> Cmd.arg "-s"
-            |> Cmd.output
-            |> Task.map .stdout
-            |> Task.map osFromStr
-            |> Task.mapErr! \err -> ErrGettingNativeOS (Inspect.toStr err)
-
-    when (os, arch) is
-        (Macos, Arm64) -> Task.ok MacosArm64
-        (Macos, X64) -> Task.ok MacosX64
-        (Linux, Arm64) -> Task.ok LinuxArm64
-        (Linux, X64) -> Task.ok LinuxX64
-        _ -> Task.err (UnsupportedNative os arch)

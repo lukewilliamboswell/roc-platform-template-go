@@ -1,6 +1,9 @@
 package roc
 
-//#include "app.h"
+/*
+#include "app.h"
+#cgo LDFLAGS: -L.. -lapp
+*/
 import "C"
 import (
 	"fmt"
