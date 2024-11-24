@@ -8,5 +8,17 @@ examples/hello-world
 *.tar.br
 *.tar.gz
 *.ll
+*.dylib
+*.lib
+*.o
+*.so
+*.obj
 
 host/libhost.h
+host/libapp.so
+
+platform/dynhost
+platform/*.rh
+platform/*.rm
+platform/*.h
+platform/*.obj

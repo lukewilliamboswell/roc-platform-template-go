@@ -10,5 +10,5 @@ struct ResultVoidStr {
     unsigned char disciminant;
 };
 
-struct ResultVoidI32 roc__mainForHost_1_exposed(int32_t captures);
+struct ResultVoidI32 roc__mainForHost_1_exposed(size_t captures);
 size_t roc__mainForHost_1_exposed_size();

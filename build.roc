@@ -3,81 +3,81 @@ app [main] {
 }
 
 import cli.Cmd
+import cli.Stdout
+import cli.Env
 
 main =
+    {os, arch} = Env.platform!
 
-    # get the native target
-    native = getNativeTarget!
+    buildForSurgicalLinker! os arch
+    buildForLegacyLinker!
 
-    # build the target
-    buildGoTarget! { target: native, hostDir: "host", platformDir: "platform" }
+exampleFile = "examples/hello-world.roc"
 
-buildGoTarget : { target : RocTarget, hostDir : Str, platformDir : Str } -> Task {} _
-buildGoTarget = \{ target, hostDir, platformDir } ->
+buildForSurgicalLinker : _, _ -> Task {} _
+buildForSurgicalLinker = \os, arch ->
+    buildLibappDylib! os
+    buildDynhost! os arch
+    preprocess! os
 
-    (goos, goarch, prebuiltBinary) =
-        when target is
-            MacosArm64 -> ("darwin", "arm64", "macos-arm64.a")
-            MacosX64 -> ("darwin", "amd64", "macos-x64")
-            LinuxArm64 -> ("linux", "arm64", "linux-arm64.a")
-            LinuxX64 -> ("linux", "amd64", "linux-x64.a")
-            WindowsArm64 -> ("windows", "arm64", "windows-arm64.a")
-            WindowsX64 -> ("windows", "amd64", "windows-x64")
+buildLibappDylib = \os ->
+    when os is
+        LINUX -> Cmd.exec! "roc" ("build --lib $(exampleFile) --output host/libapp.so" |> Str.splitOn " ")
+        MACOS -> Cmd.exec! "roc" ("build --lib $(exampleFile) --output host/libapp.dylib" |> Str.splitOn " ")
+        WINDOWS -> Cmd.exec! "roc" ("build --lib $(exampleFile) --output host/app.lib" |> Str.splitOn " ")
+        OTHER str -> crash "unreachable - unkown os $(str)"
+
+buildDynhost = \os, arch ->
+
+    goos =
+        when os is
+            LINUX -> "linux"
+            MACOS -> "darwin"
+            WINDOWS -> "windows"
+            OTHER str -> crash "unreachable - unkown os $(str)"
+
+    goarch =
+        when arch is
+            X86 -> "386"
+            X64 -> "amd64"
+            ARM -> "arm"
+            AARCH64 -> "arm64"
+            OTHER str -> crash "unreachable - unkown arch $(str)"
 
     Cmd.new "go"
-        |> Cmd.envs [("GOOS", goos), ("GOARCH", goarch), ("CC", "zig cc")]
-        |> Cmd.args ["build", "-C", hostDir, "-buildmode=c-archive", "-o", "libhost.a"]
+        |> Cmd.args ("build -C host -buildmode pie -o ../platform/dynhost" |> Str.splitOn " ")
+        |> Cmd.envs [("GOOS", goos), ("GOARCH", goarch), ("CC", "zig cc"), ("CGO_ENABLED", "1")]
         |> Cmd.status
-        |> Task.mapErr! \err -> BuildErr goos goarch (Inspect.toStr err)
+        |> Task.mapErr BuildDynhost
 
-    Cmd.exec "cp" ["$(hostDir)/libhost.a", "$(platformDir)/$(prebuiltBinary)"]
-        |> Task.mapErr! \err -> CpErr (Inspect.toStr err)
+preprocess = \os ->
+    when os is
+        LINUX -> Cmd.exec! "roc" ["preprocess-host", "platform/dynhost", "platform/main.roc", "host/libapp.so"]
+        MACOS -> Cmd.exec! "roc" ["preprocess-host", "platform/dynhost", "platform/main.roc", "host/libapp.dylib"]
+        WINDOWS -> Cmd.exec! "roc" ["preprocess-host", "platform/dynhost", "platform/main.roc", "host/app.lib"]
+        OTHER str -> crash "unreachable - unkown os $(str)"
 
-RocTarget : [
-    MacosArm64,
-    MacosX64,
-    LinuxArm64,
-    LinuxX64,
-    WindowsArm64,
-    WindowsX64,
-]
+buildForLegacyLinker : Task {} _
+buildForLegacyLinker =
+    [MacosArm64, MacosX64, LinuxArm64, LinuxX64, WindowsArm64, WindowsX64]
+        |> List.map \target -> buildDotA target
+        |> Task.sequence
+        |> Task.map \_ -> {}
+        |> Task.mapErr! \_ -> BuildForLegacyLinker
 
-getNativeTarget : Task RocTarget _
-getNativeTarget =
+buildDotA = \target ->
+    (goos, goarch, zigTarget, prebuiltBinary) =
+        when target is
+            MacosArm64 -> ("darwin", "arm64", "aarch64-macos", "macos-arm64.a")
+            MacosX64 -> ("darwin", "amd64", "x86_64-macos", "macos-x64.a")
+            LinuxArm64 -> ("linux", "arm64", "aarch64-linux", "linux-arm64.a")
+            LinuxX64 -> ("linux", "amd64", " x86_64-linux", "linux-x64.a")
+            WindowsArm64 -> ("windows", "arm64", "aarch64-windows", "windows-arm64.obj")
+            WindowsX64 -> ("windows", "amd64", "x86_64-windows", "windows-x64.obj")
+    Stdout.line! "build host for $(Inspect.toStr target)"
 
-    archFromStr = \bytes ->
-        when Str.fromUtf8 bytes is
-            Ok str if str == "arm64\n" -> Arm64
-            Ok str if str == "x86_64\n" -> X64
-            Ok str -> UnsupportedArch str
-            _ -> crash "invalid utf8 from uname -m"
-
-    arch =
-        Cmd.new "uname"
-            |> Cmd.arg "-m"
-            |> Cmd.output
-            |> Task.map .stdout
-            |> Task.map archFromStr
-            |> Task.mapErr! \err -> ErrGettingNativeArch (Inspect.toStr err)
-
-    osFromStr = \bytes ->
-        when Str.fromUtf8 bytes is
-            Ok str if str == "Darwin\n" -> Macos
-            Ok str if str == "Linux\n" -> Linux
-            Ok str -> UnsupportedOS str
-            _ -> crash "invalid utf8 from uname -s"
-
-    os =
-        Cmd.new "uname"
-            |> Cmd.arg "-s"
-            |> Cmd.output
-            |> Task.map .stdout
-            |> Task.map osFromStr
-            |> Task.mapErr! \err -> ErrGettingNativeOS (Inspect.toStr err)
-
-    when (os, arch) is
-        (Macos, Arm64) -> Task.ok MacosArm64
-        (Macos, X64) -> Task.ok MacosX64
-        (Linux, Arm64) -> Task.ok LinuxArm64
-        (Linux, X64) -> Task.ok LinuxX64
-        _ -> Task.err (UnsupportedNative os arch)
+    Cmd.new "go"
+        |> Cmd.envs [("GOOS", goos), ("GOARCH", goarch), ("CC", "zig cc -target $(zigTarget)"), ("CGO_ENABLED", "1")]
+        |> Cmd.args ("build -C host -buildmode c-archive -o ../platform/$(prebuiltBinary) -tags legacy,netgo" |> Str.splitOn " ")
+        |> Cmd.status
+        |> Task.mapErr! \err -> BuildErr target (Inspect.toStr err)
