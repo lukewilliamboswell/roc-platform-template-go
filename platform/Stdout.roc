@@ -1,8 +1,7 @@
 # example of how to define an effect from the platform
-module [line, Err]
+module [line!, Err]
 
 import Effect
-import Task exposing [Task]
 
 ## **BrokenPipe** - This error can occur when writing to a stdout that is no longer connected
 ## to a valid input. For example, if the process on the receiving end of a pipe closes its
@@ -49,8 +48,7 @@ handleErr = \err ->
 ##
 ## > To write to `stdout` without the newline, see [Stdout.write].
 ##
-line : Str -> Task {} [StdoutErr Err]
-line = \str ->
-    Effect.stdoutLine str
-    |> Effect.map \res -> Result.mapErr res handleErr
-    |> Task.fromEffect
+line! : Str => Result {} [StdoutErr Err]
+line! = \str ->
+    Effect.stdoutLine! str
+    |> Result.mapErr handleErr

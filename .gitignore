@@ -1,7 +1,8 @@
 generated-docs/
 
 build
-app
+
+examples/hello-world
 
 *.a
 *.tar.br
@@ -9,6 +10,3 @@ app
 *.ll
 
 host/libhost.h
-
-# generated files
-host/roc

@@ -8,14 +8,8 @@ import (
 )
 
 func Main() int {
-	size := C.roc__mainForHost_1_exposed_size()
-	capturePtr := roc_alloc(size, 0)
-	defer roc_dealloc(capturePtr, 0)
+	var result = C.roc__mainForHost_1_exposed(0)
 
-	C.roc__mainForHost_1_exposed_generic(capturePtr)
-
-	var result C.struct_ResultVoidI32
-	C.roc__mainForHost_0_caller(nil, capturePtr, &result)
 	switch result.disciminant {
 	case 1: // Ok
 		return 0
