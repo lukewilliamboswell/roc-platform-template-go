@@ -18,12 +18,12 @@ buildForSurgicalLinker =
     preprocess!
 
 buildLibappSo =
-    Cmd.exec! "roc" ("build --lib $(exampleFile) --output host/libapp.so" |> Str.split " ")
+    Cmd.exec! "roc" ("build --lib $(exampleFile) --output host/libapp.so" |> Str.splitOn " ")
 
 buildDynhost =
     Cmd.new "go"
-        |> Cmd.args ("build -C host -buildmode pie -o ../platform/dynhost" |> Str.split " ")
-        |> Cmd.envs [("GOOS", "linux"), ("GOARCH", "amd64"), ("CC", "zig cc")]
+        |> Cmd.args ("build -C host -buildmode pie -o ../platform/dynhost" |> Str.splitOn " ")
+        |> Cmd.envs [("GOOS", "linux"), ("GOARCH", "amd64"), ("CC", "zig cc"), ("CGO_ENABLED", "1")]
         |> Cmd.status
         |> Task.mapErr! \_ -> BuildDynhost
 
@@ -50,7 +50,7 @@ buildDotA = \target ->
     Stdout.line! "build host for $(Inspect.toStr target)"
     Cmd.new "go"
         |> Cmd.envs [("GOOS", goos), ("GOARCH", goarch), ("CC", "zig cc -target $(zigTarget)"), ("CGO_ENABLED", "1")]
-        |> Cmd.args ("build -C host -buildmode c-archive -o ../platform/$(prebuiltBinary) -tags legacy,netgo" |> Str.split " ")
+        |> Cmd.args ("build -C host -buildmode c-archive -o ../platform/$(prebuiltBinary) -tags legacy,netgo" |> Str.splitOn " ")
         |> Cmd.status
         |> Task.mapErr! \err -> BuildErr target (Inspect.toStr err)
 
