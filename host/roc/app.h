@@ -1,3 +1,6 @@
+#ifndef ROC_APP
+#define ROC_APP
+
 #include "roc_std.h"
 
 struct ResultVoidI32 {
@@ -12,3 +15,5 @@ struct ResultVoidStr {
 
 struct ResultVoidI32 roc__mainForHost_1_exposed(size_t captures);
 size_t roc__mainForHost_1_exposed_size();
+
+#endif
