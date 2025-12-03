@@ -1,36 +1,71 @@
-# Roc platform template for Go
+# Roc Platform Template for Go
 
-This is a template for getting started with a [roc
-platform](https://www.roc-lang.org/platforms) using [Go](https://golang.org).
+A template for building [Roc platforms](https://www.roc-lang.org/platforms) with a C/Go host.
 
-If you have any ideas to improve this template, please let me know. 😀
+## Quick Start
 
+Build the platform:
+```sh
+make build
+```
 
-## Developing locally
+Run an example:
+```sh
+roc examples/hello-world.roc
+```
 
-Build the platform with `roc build.roc` to produce the prebuilt-binaries in
-`platform/`.
+## Examples
 
-Then you will be able to run `roc example/hello-world.roc`.
+| Example | Description |
+|---------|-------------|
+| `hello-world.roc` | Print greeting and command-line args |
+| `fizzbuzz.roc` | Classic FizzBuzz 1-15 |
+| `exit.roc` | Exit with non-zero code |
+| `stderr.roc` | Write to stdout and stderr |
+| `match.roc` | Pattern matching demo |
+| `sum_fold.roc` | List operations |
+| `echo.roc` | Read from stdin and echo back |
+| `tests.roc` | Run with `roc test` |
 
-This requires zig 0.11.0. Newer version of zig have an
-[issue](https://github.com/ziglang/zig/issues/20689).
+## Building
 
+```sh
+make build    # Build for current platform
+make clean    # Remove build artifacts
+make info     # Show build configuration
+```
 
-## Packaging the platform
+The build produces `platform/libhost.a` (or `host.lib` on Windows).
 
-Bundle the platform source and prebuilt-binaries with `roc build --bundle
-.tar.br platform/main.roc`, and then upload to a URL.
+## Project Structure
 
+```
+platform/
+  main.roc          # Platform definition
+  Stdout.roc        # Stdout.line! effect
+  Stderr.roc        # Stderr.line! effect
+  Stdin.roc         # Stdin.line! effect
+  targets/          # Prebuilt host libraries per target
+host/
+  roc_host.c        # C host implementation
+  roc_abi.h         # RocCall ABI definitions
+  host.go           # Go host (for future Go integration)
+examples/
+  *.roc             # Example applications
+```
 
-## Platform documentation
+## Packaging
 
-Generate the documentation with `roc docs platform/main.roc` and then serve the
-files in `generated-docs/` using a webserver.
+Bundle the platform for distribution:
+```sh
+roc build --bundle .tar.br platform/main.roc
+```
 
+## Documentation
 
-## Advaced - LLVM IR
+Generate platform docs:
+```sh
+roc docs platform/main.roc
+```
 
-You can generate the LLVM IR for the app with `roc build --emit-llvm-ir app.roc`
-which is an authoritative reference for what roc will generate in the
-application object.
+Then serve the files in `generated-docs/`.
