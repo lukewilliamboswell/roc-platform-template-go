@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+echo "Checking Go formatting..."
+if [ -n "$(gofmt -l .)" ]; then
+  echo "Go files need formatting. Run: go fmt ./..."
+  gofmt -l .
+  exit 1
+fi
+echo "Go formatting OK"
+
 # Build roc from source if not available
 if ! command -v roc &> /dev/null; then
   if [ ! -d "roc-src" ]; then
@@ -29,6 +37,11 @@ echo ""
 echo "Building host library..."
 make clean
 make build
+
+echo ""
+echo "Checking Roc formatting..."
+# Note: platform/main.roc excluded - uses new targets syntax not yet supported by formatter
+roc fmt --check examples/*.roc platform/Stdout.roc platform/Stderr.roc platform/Stdin.roc
 
 echo ""
 echo "Running Go tests..."

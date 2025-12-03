@@ -8,8 +8,8 @@ import pf.Stdout
 
 main! : List(Str) => Try({}, [Exit(I32)])
 main! = |_args| {
-    Stdout.line!("Run 'roc test --verbose examples/tests.roc' to execute the tests")
-    Ok({})
+	Stdout.line!("Run 'roc test --verbose examples/tests.roc' to execute the tests")
+	Ok({})
 }
 
 # --- Simple expects for demonstration ---

@@ -1,3 +1,3 @@
 Stdin := [].{
-    line! : () => Str
+	line! : () => Str
 }
