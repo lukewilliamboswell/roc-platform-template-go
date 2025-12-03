@@ -2,7 +2,12 @@ generated-docs/
 
 build
 
+# Built example binaries
 examples/hello-world
+fizzbuzz
+
+# CI builds roc from source
+roc-src/
 
 *.a
 *.tar.br

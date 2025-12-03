@@ -42,7 +42,7 @@ FINAL_LIB := $(TARGET_PATH)/$(LIB_NAME)
 CC := cc
 AR := ar
 
-.PHONY: all clean build native info run-hello run-echo run-exit run-fizzbuzz run-stderr run-match run-sum run-tests
+.PHONY: all clean build native info test run-hello run-echo run-exit run-fizzbuzz run-stderr run-match run-sum run-tests
 
 all: build
 
@@ -75,28 +75,46 @@ clean:
 
 # Run examples
 run-hello:
-	roc examples/hello-world.roc
+	roc --no-cache examples/hello-world.roc
 
 run-echo:
-	roc examples/echo.roc
+	roc --no-cache examples/echo.roc
 
 run-exit:
-	roc examples/exit.roc
+	roc --no-cache examples/exit.roc
 
 run-fizzbuzz:
-	roc examples/fizzbuzz.roc
+	roc --no-cache examples/fizzbuzz.roc
 
 run-stderr:
-	roc examples/stderr.roc
+	roc --no-cache examples/stderr.roc
 
 run-match:
-	roc examples/match.roc
+	roc --no-cache examples/match.roc
 
 run-sum:
-	roc examples/sum_fold.roc
+	roc --no-cache examples/sum_fold.roc
 
 run-tests:
 	roc test examples/tests.roc
+
+# Run all tests (used by CI)
+test: build
+	@echo "Running Go tests..."
+	cd rocstd && go test ./...
+	@echo ""
+	@echo "Running all examples..."
+	roc --no-cache examples/hello-world.roc
+	roc --no-cache examples/fizzbuzz.roc
+	roc --no-cache examples/match.roc
+	roc --no-cache examples/stderr.roc
+	roc --no-cache examples/sum_fold.roc
+	-roc --no-cache examples/exit.roc
+	@echo ""
+	@echo "Running roc test..."
+	roc test examples/tests.roc
+	@echo ""
+	@echo "All tests passed!"
 
 info:
 	@echo "OS: $(UNAME_S)"
