@@ -7,6 +7,13 @@ platform ""
         files: "targets/",
         exe: {
             arm64mac: ["libhost.a", app],
+            x64mac: ["libhost.a", app],
+            arm64glibc: ["libhost.a", app],
+            x64glibc: ["libhost.a", app],
+            arm64musl: ["libhost.a", app],
+            x64musl: ["libhost.a", app],
+            arm64win: ["host.lib", app],
+            x64win: ["host.lib", app],
         }
     }
 

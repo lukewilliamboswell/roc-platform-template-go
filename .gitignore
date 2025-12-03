@@ -12,12 +12,16 @@ roc-src/
 *.a
 *.tar.br
 *.tar.gz
+*.tar.zst
 *.ll
 *.dylib
 *.lib
 *.o
 *.so
 *.obj
+
+# Go test artifacts
+coverage.out
 
 host/libhost.h
 host/libgo.h

@@ -8,12 +8,16 @@ import "C"
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"unsafe"
 
 	"github.com/lukewilliamboswell/roc-platform-template-go/rocstd"
 )
+
+// Maximum bytes to read from stdin per line (1MB limit to prevent DoS)
+const maxStdinLineSize = 1 << 20
 
 // ============================================================================
 // Hosted Functions (called from C via function pointers)
@@ -32,7 +36,9 @@ func goHostedStderrLine(strPtr unsafe.Pointer) {
 
 //export goHostedStdinLine
 func goHostedStdinLine(retPtr unsafe.Pointer) {
-	reader := bufio.NewReader(os.Stdin)
+	// Limit stdin to prevent DoS from extremely long lines
+	limitedReader := io.LimitReader(os.Stdin, maxStdinLineSize)
+	reader := bufio.NewReader(limitedReader)
 	line, err := reader.ReadString('\n')
 
 	result := (*rocstd.RocStr)(retPtr)
@@ -66,7 +72,10 @@ func goBuildArgsList(argc C.int, argv **C.char) unsafe.Pointer {
 
 	if count == 0 {
 		empty := rocstd.EmptyList[rocstd.RocStr]()
-		return unsafe.Pointer(&empty)
+		// Allocate on C heap (not stack) to safely return to caller
+		listPtr := C.malloc(C.size_t(unsafe.Sizeof(empty)))
+		*(*rocstd.RocList[rocstd.RocStr])(listPtr) = empty
+		return listPtr
 	}
 
 	// Convert argv to Go strings

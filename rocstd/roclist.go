@@ -1,8 +1,22 @@
 package rocstd
 
 import (
+	"math"
 	"unsafe"
 )
+
+// checkMulOverflow returns true if a*b would overflow uintptr.
+func checkMulOverflow(a, b uintptr) bool {
+	if a == 0 || b == 0 {
+		return false
+	}
+	return a > uintptr(math.MaxUint)/b
+}
+
+// checkAddOverflow returns true if a+b would overflow uintptr.
+func checkAddOverflow(a, b uintptr) bool {
+	return a > uintptr(math.MaxUint)-b
+}
 
 // RocList represents a Roc list with reference counting.
 //
@@ -50,7 +64,15 @@ func NewRocList[T any](slice []T, elementsRefcounted bool, ops *RocOps) RocList[
 		headerSize = RefcountSize // 8 bytes
 	}
 
+	// Check for integer overflow in size calculations
+	if checkMulOverflow(uintptr(length), elemSize) {
+		panic("rocstd: list size overflow (length * elemSize)")
+	}
 	dataSize := uintptr(length) * elemSize
+
+	if checkAddOverflow(headerSize, dataSize) {
+		panic("rocstd: list size overflow (headerSize + dataSize)")
+	}
 	totalSize := headerSize + dataSize
 
 	// Allocate with proper alignment

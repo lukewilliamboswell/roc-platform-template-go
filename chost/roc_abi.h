@@ -115,19 +115,6 @@ typedef struct RocList {
 } RocList;
 
 // ============================================================================
-// Constants
-// ============================================================================
-
-// Small string size threshold (strings smaller than this are stored inline)
-#define ROC_SMALL_STRING_SIZE 24
-
-// Mask for detecting small strings (high bit set in capacity)
-#define ROC_SMALL_STRING_MASK ((size_t)1 << (sizeof(size_t) * 8 - 1))
-
-// Mask for detecting seamless slices (high bit set in capacity)
-#define ROC_SEAMLESS_SLICE_MASK ((size_t)1 << (sizeof(size_t) * 8 - 1))
-
-// ============================================================================
 // External Roc Function (provided by compiled Roc code)
 // ============================================================================
 

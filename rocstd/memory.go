@@ -3,6 +3,17 @@
 // This package provides type-safe wrappers for Roc's core types like RocStr
 // and RocList, abstracting away the low-level memory layout details and
 // providing an idiomatic Go API.
+//
+// # Thread Safety
+//
+// This package is NOT thread-safe. The following limitations apply:
+//   - RocStr and RocList types use non-atomic reference counting
+//   - Concurrent access to the same RocStr or RocList is unsafe
+//   - DefaultOps() returns a shared instance - do not use from multiple goroutines
+//   - All operations should be performed from a single goroutine
+//
+// If you need concurrent access, use external synchronization (mutex) or
+// create separate copies for each goroutine.
 package rocstd
 
 /*
@@ -55,9 +66,4 @@ func cRealloc(ptr unsafe.Pointer, size uintptr) unsafe.Pointer {
 // cMemcpy copies n bytes from src to dst.
 func cMemcpy(dst, src unsafe.Pointer, n uintptr) {
 	C.memcpy(dst, src, C.size_t(n))
-}
-
-// cMemset sets n bytes of dst to value c.
-func cMemset(dst unsafe.Pointer, c int, n uintptr) {
-	C.memset(dst, C.int(c), C.size_t(n))
 }
