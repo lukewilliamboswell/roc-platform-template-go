@@ -20,7 +20,9 @@ roc-src/
 *.obj
 
 host/libhost.h
+host/libgo.h
 host/libapp.so
+host/tmp_objs/
 
 platform/dynhost
 platform/*.rh

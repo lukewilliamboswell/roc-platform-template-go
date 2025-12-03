@@ -31,11 +31,14 @@ endif
 
 # Paths
 HOST_DIR := host
+CHOST_DIR := chost
 PLATFORM_DIR := platform
 TARGET_PATH := $(PLATFORM_DIR)/targets/$(TARGET_DIR)
 
 # Output files
-HOST_OBJ := $(HOST_DIR)/roc_host.o
+GO_ARCHIVE := $(HOST_DIR)/libgo.a
+GO_HEADER := $(HOST_DIR)/libgo.h
+HOST_OBJ := $(CHOST_DIR)/roc_host.o
 FINAL_LIB := $(TARGET_PATH)/$(LIB_NAME)
 
 # Compiler
@@ -54,13 +57,22 @@ build: $(FINAL_LIB)
 $(TARGET_PATH):
 	mkdir -p $(TARGET_PATH)
 
-# Compile roc_host.c (pure C, no Go)
-$(HOST_OBJ): $(HOST_DIR)/roc_host.c $(HOST_DIR)/roc_abi.h
-	$(CC) -c $(HOST_DIR)/roc_host.c -o $(HOST_OBJ) -I$(HOST_DIR) -fno-stack-protector
+# Build Go code as C-archive
+$(GO_ARCHIVE): $(HOST_DIR)/host.go
+	cd $(HOST_DIR) && CGO_ENABLED=1 go build -buildmode=c-archive -o libgo.a .
 
-# Create library from just the C object
-$(FINAL_LIB): $(TARGET_PATH) $(HOST_OBJ)
-	$(AR) rcs $(FINAL_LIB) $(HOST_OBJ)
+# Compile roc_host.c with Go header
+$(HOST_OBJ): $(CHOST_DIR)/roc_host.c $(CHOST_DIR)/roc_abi.h $(GO_ARCHIVE)
+	$(CC) -c $(CHOST_DIR)/roc_host.c -o $(HOST_OBJ) -I$(CHOST_DIR) -I$(HOST_DIR) -fno-stack-protector
+
+# Create final library by combining C and Go objects
+$(FINAL_LIB): $(TARGET_PATH) $(HOST_OBJ) $(GO_ARCHIVE)
+	# Extract Go archive objects
+	mkdir -p $(HOST_DIR)/tmp_objs
+	cd $(HOST_DIR)/tmp_objs && $(AR) x ../libgo.a
+	# Create final archive with all objects
+	$(AR) rcs $(FINAL_LIB) $(HOST_OBJ) $(HOST_DIR)/tmp_objs/*.o
+	rm -rf $(HOST_DIR)/tmp_objs
 	# Copy to platform root for convenience
 	cp $(FINAL_LIB) $(PLATFORM_DIR)/$(LIB_NAME)
 
@@ -68,9 +80,9 @@ native: build
 
 clean:
 	rm -f $(HOST_OBJ)
+	rm -f $(GO_ARCHIVE) $(GO_HEADER)
 	rm -f $(PLATFORM_DIR)/libhost.a $(PLATFORM_DIR)/host.lib
 	rm -f $(TARGET_PATH)/$(LIB_NAME)
-	rm -f $(HOST_DIR)/libgo.a $(HOST_DIR)/libgo.h
 	rm -rf $(HOST_DIR)/tmp_objs
 
 # Run examples
