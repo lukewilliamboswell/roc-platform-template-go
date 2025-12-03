@@ -1,0 +1,10 @@
+# Enforce LF line endings for source files
+* text=auto eol=lf
+
+# Binary files
+*.a binary
+*.lib binary
+*.o binary
+*.tar.br binary
+*.tar.gz binary
+*.tar.zst binary
