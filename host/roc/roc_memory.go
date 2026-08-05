@@ -1,14 +1,11 @@
 package roc
 
 /*
-#cgo LDFLAGS: -L.. -lapp
 #include "./roc_std.h"
 */
 import "C"
 
 import (
-	"fmt"
-	"os"
 	"unsafe"
 )
 
@@ -61,33 +58,34 @@ func setRefCountToOne(ptr unsafe.Pointer) {
 }
 
 //export roc_alloc
-func roc_alloc(size C.size_t, alignment int) unsafe.Pointer {
+func roc_alloc(size C.size_t, alignment C.size_t) unsafe.Pointer {
 	_ = alignment
 	return C.malloc(size)
 }
 
 //export roc_realloc
-func roc_realloc(ptr unsafe.Pointer, newSize, _ C.size_t, alignment int) unsafe.Pointer {
+func roc_realloc(ptr unsafe.Pointer, newSize C.size_t, alignment C.size_t) unsafe.Pointer {
 	_ = alignment
 	return C.realloc(ptr, newSize)
 }
 
 //export roc_dealloc
-func roc_dealloc(ptr unsafe.Pointer, alignment int) {
+func roc_dealloc(ptr unsafe.Pointer, alignment C.size_t) {
 	_ = alignment
 	C.free(ptr)
 }
 
-//export roc_panic
-func roc_panic(msg *RocStr, tagID C.uint) {
-	panic(msg.String())
+//export roc_crashed
+func roc_crashed(bytes *byte, len C.size_t) {
+	panic("roc_crashed called TODO")
+}
+
+//export roc_expect_failed
+func roc_expect_failed(bytes *byte, len C.size_t) {
+	panic("roc_expect_failed called TODO")
 }
 
 //export roc_dbg
-func roc_dbg(loc *RocStr, msg *RocStr, src *RocStr) {
-	if src.String() == msg.String() {
-		fmt.Fprintf(os.Stderr, "[%s] {%s}\n", loc, msg)
-	} else {
-		fmt.Fprintf(os.Stderr, "[%s] {%s} = {%s}\n", loc, src, msg)
-	}
+func roc_dbg(bytes *byte, len C.size_t) {
+	panic("roc_expect_failed called TODO")
 }

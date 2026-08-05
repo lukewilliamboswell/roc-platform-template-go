@@ -6,6 +6,15 @@ platform](https://www.roc-lang.org/platforms) using [Go](https://golang.org).
 If you have any ideas to improve this template, please let me know. 😀
 
 
+# Current build
+
+CGO_ENABLED=1 CC="zig cc -target x86_64-linux-musl"  go build -C host -buildmode c-archive -tags netgo,osusergo -o ../platform/targets/x64musl/libhost.a
+
+
+
+## TODO: Fix/remove old stuff
+
+
 ## Developing locally
 
 Build the platform with `roc build.roc` to produce the prebuilt-binaries in
