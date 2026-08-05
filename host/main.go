@@ -1,28 +1,31 @@
 package main
 
-//#cgo CFLAGS: -Wno-main-return-type
+/*
+#include "roc/roc_std.h"
+*/
 import "C"
+
 import (
-	"fmt"
-	_ "host/roc"
+	"host/roc"
+	"unsafe"
 )
 
-//export roc_stderr_line
-func roc_stderr_line() {
-	fmt.Println("roc_stderr_line called")
+//export go_platform_main
+func go_platform_main(argc C.int, argv **C.char) C.int {
+	count := int(argc)
+	args := make([]roc.RocStr, count)
+	if count > 0 {
+		cArgs := unsafe.Slice(argv, count)
+		for i, arg := range cArgs {
+			args[i] = roc.NewRocStr(C.GoString(arg))
+		}
+	}
+
+	rocArgs := roc.NewRocList(args)
+	cRocArgs := *(*C.RocList)(unsafe.Pointer(&rocArgs))
+	return C.int(C.roc_main(cRocArgs))
 }
 
-//export roc_stdin_line
-func roc_stdin_line() {
-	fmt.Println("roc_stdin_line called")
-}
-
-//export roc_stdout_line
-func roc_stdout_line() {
-	fmt.Println("roc_stdout_line called")
-}
-
-//export main
-func main() {
-	fmt.Println("in go main")
-}
+// A main function is required when building a Go c-archive. The actual C entry
+// point lives in startup.c so it can receive argc and argv from the C runtime.
+func main() {}

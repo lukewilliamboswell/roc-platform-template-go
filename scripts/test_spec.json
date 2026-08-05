@@ -1,0 +1,227 @@
+{
+  "stages": {
+    "check": true,
+    "test": true,
+    "build": true,
+    "run": true
+  },
+  "apps": [
+    {
+      "path": "examples/cli_args.roc",
+      "cases": [
+        {
+          "name": "uses-default-addressee",
+          "stdout_equals": "Hello, Roc developer!\n",
+          "stderr_equals": ""
+        },
+        {
+          "name": "greets-every-provided-name",
+          "args": ["Ana", "Bo"],
+          "stdout_equals": "Hello, Ana, Bo!\n",
+          "stderr_equals": ""
+        },
+        {
+          "name": "preserves-unicode-names",
+          "args": ["Zoë", "中"],
+          "stdout_equals": "Hello, Zoë, 中!\n",
+          "stderr_equals": ""
+        }
+      ]
+    },
+    {
+      "path": "examples/hello_world.roc",
+      "cases": [
+        {
+          "name": "prints-greeting",
+          "stdout_equals": "Hello, World!\n",
+          "stderr_equals": ""
+        }
+      ]
+    },
+    {
+      "path": "examples/fizzbuzz.roc",
+      "cases": [
+        {
+          "name": "uses-default-limit",
+          "stdout_equals": "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz\n",
+          "stderr_equals": ""
+        },
+        {
+          "name": "accepts-explicit-limit",
+          "args": ["5"],
+          "stdout_equals": "1\n2\nFizz\n4\nBuzz\n",
+          "stderr_equals": ""
+        },
+        {
+          "name": "rejects-non-numeric-limit",
+          "args": ["many"],
+          "exit_code": 255,
+          "stdout_equals": "",
+          "stderr_equals": "ERROR: InvalidLimit(\"many\")\n"
+        },
+        {
+          "name": "rejects-limit-below-range",
+          "args": ["0"],
+          "exit_code": 255,
+          "stdout_equals": "",
+          "stderr_equals": "ERROR: LimitTooSmall(0)\n"
+        },
+        {
+          "name": "rejects-limit-above-range",
+          "args": ["101"],
+          "exit_code": 255,
+          "stdout_equals": "",
+          "stderr_equals": "ERROR: LimitTooLarge(101)\n"
+        }
+      ]
+    },
+    {
+      "path": "examples/match.roc",
+      "cases": [
+        {
+          "name": "defaults-to-pending",
+          "stdout_equals": "Order is waiting to be processed.\n",
+          "stderr_equals": ""
+        },
+        {
+          "name": "matches-known-status",
+          "args": ["shipped"],
+          "stdout_equals": "Order is on its way.\n",
+          "stderr_equals": ""
+        },
+        {
+          "name": "reports-unknown-status",
+          "args": ["delayed"],
+          "stdout_equals": "Unknown order status: delayed\n",
+          "stderr_equals": ""
+        }
+      ]
+    },
+    {
+      "path": "examples/stderr.roc",
+      "cases": [
+        {
+          "name": "keeps-output-streams-separate",
+          "stdout_equals": "This message goes to stdout\nYou can redirect it with: roc run example.roc > out.txt\n",
+          "stderr_equals": "This message goes to stderr\nYou can redirect it with: roc run example.roc 2> err.txt\n"
+        }
+      ]
+    },
+    {
+      "path": "examples/sum_fold.roc",
+      "cases": [
+        {
+          "name": "uses-default-numbers",
+          "stdout_equals": "Numbers: 1, 2, 3\nTotal: 6\n",
+          "stderr_equals": ""
+        },
+        {
+          "name": "folds-positive-and-negative-numbers",
+          "args": ["10", "-3", "5"],
+          "stdout_equals": "Numbers: 10, -3, 5\nTotal: 12\n",
+          "stderr_equals": ""
+        },
+        {
+          "name": "rejects-invalid-number",
+          "args": ["10", "many", "5"],
+          "exit_code": 255,
+          "stdout_equals": "",
+          "stderr_equals": "ERROR: InvalidNumber(\"many\")\n"
+        }
+      ]
+    },
+    {
+      "path": "examples/custom_error.roc",
+      "cases": [
+        {
+          "name": "renders-default-domain-error",
+          "exit_code": 255,
+          "stdout_equals": "",
+          "stderr_equals": "ERROR: ApplicationError(the operation failed)\n"
+        },
+        {
+          "name": "returns-success",
+          "args": ["success"],
+          "stdout_equals": "The operation completed successfully.\n",
+          "stderr_equals": ""
+        },
+        {
+          "name": "renders-context-for-unknown-command",
+          "args": ["maybe"],
+          "exit_code": 255,
+          "stdout_equals": "",
+          "stderr_equals": "ERROR: ApplicationError(unknown command \"maybe\"; expected \"success\" or \"failure\")\n"
+        }
+      ]
+    },
+    {
+      "path": "examples/echo.roc",
+      "cases": [
+        {
+          "name": "echoes-one-line",
+          "stdin": "Roc\n",
+          "stdout_equals": "Enter something and I'll echo it back:\nYou entered: Roc\n",
+          "stderr_equals": ""
+        },
+        {
+          "name": "reports-end-of-input",
+          "stdout_equals": "Enter something and I'll echo it back:\nNo input received.\n",
+          "stderr_equals": ""
+        }
+      ]
+    },
+    {
+      "path": "examples/echo_multiline.roc",
+      "cases": [
+        {
+          "name": "echoes-multiple-lines",
+          "stdin": "line one\nline two\nline three\n",
+          "stdout_equals": "line one\nline two\nline three\n",
+          "stderr_equals": ""
+        },
+        {
+          "name": "accepts-empty-input",
+          "stdout_equals": "",
+          "stderr_equals": ""
+        },
+        {
+          "name": "echoes-final-line-without-newline",
+          "stdin": "last line",
+          "stdout_equals": "last line\n",
+          "stderr_equals": ""
+        }
+      ]
+    },
+    {
+      "path": "examples/tests.roc",
+      "cases": [
+        {
+          "name": "prints-test-instructions",
+          "stdout_equals": "Run 'roc test --verbose examples/tests.roc' to execute the tests\n",
+          "stderr_equals": ""
+        }
+      ]
+    },
+    {
+      "path": "examples/dbg_test.roc",
+      "build_args": ["--opt=dev"],
+      "cases": [
+        {
+          "name": "separates-debug-output",
+          "stdout_equals": "stdout works\n",
+          "stderr_contains": ["[ROC DBG]", "test message"]
+        }
+      ]
+    },
+    {
+      "path": "examples/all_roc_syntax.roc",
+      "cases": [
+        {
+          "name": "runs-syntax-tour",
+          "stdout_contains": ["Hello, world!", "other letter"],
+          "stderr_equals": ""
+        }
+      ]
+    }
+  ]
+}

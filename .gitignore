@@ -1,4 +1,16 @@
 /echo
+/ci-artifacts/
+/ci-binaries/
+/ci-docs/
+/ci-output/
+/dist/
+/.ci-binaries/
+/.test-cache/
+/generated-docs/
+__pycache__/
+*.pyc
 
 platform/targets/*/libhost.a
 platform/targets/*/libhost.h
+platform/targets/*/host.lib
+platform/targets/*/host.h

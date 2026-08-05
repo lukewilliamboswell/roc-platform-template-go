@@ -1,0 +1,149 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cross-build:
+    name: cross-build (${{ matrix.builder }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - builder: macos-x64
+            os: macos-15-intel
+            cc: zig cc
+          - builder: macos-arm64
+            os: macos-15
+            cc: zig cc
+          - builder: linux-x64
+            os: ubuntu-22.04
+            cc: zig cc
+          - builder: linux-arm64
+            os: ubuntu-24.04-arm
+            cc: zig cc
+          - builder: windows-2022-x64
+            os: windows-2022
+            cc: zig cc -target x86_64-windows-gnu
+          - builder: windows-2025-x64
+            os: windows-2025
+            cc: zig cc -target x86_64-windows-gnu
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Go from .go-version
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: .go-version
+          cache: false
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.16.0
+          use-cache: false
+
+      - name: Read pinned Roc version
+        run: python scripts/export_roc_version.py
+
+      - name: Install pinned Roc nightly
+        uses: roc-lang/setup-roc@cbe782d6f165b89c87d99f50a59ac4f5f73b4427
+        with:
+          version: nightly-new-compiler
+          nightly-tag: ${{ env.ROC_NIGHTLY_TAG }}
+
+      - name: Show pinned toolchains
+        run: |
+          go version
+          zig version
+          roc version
+          python --version
+
+      - name: Test Go host units
+        working-directory: host
+        run: |
+          go test ./...
+          go vet ./...
+        env:
+          CC: ${{ matrix.cc }}
+          CGO_ENABLED: "1"
+
+      - name: Check Roc formatting
+        run: |
+          roc fmt --check platform
+          roc fmt --check examples
+
+      - name: Generate platform documentation
+        run: roc docs platform/main.roc --output=ci-docs --no-cache
+
+      - name: Cross-compile every Go host
+        run: python scripts/build.py --all
+
+      - name: Bundle platform, validate examples, and cross-compile test apps
+        run: python scripts/test.py --operation produce --output-dir ci-output/binaries --bundle-output-dir ci-output/bundle --target x64mac --target arm64mac --target x64musl --target x64v1musl --target arm64musl --target arm64v1musl --verbose
+
+      - name: Upload cross-compiled test apps
+        uses: actions/upload-artifact@v4
+        with:
+          name: apps-${{ matrix.builder }}
+          path: ci-output
+          if-no-files-found: error
+          retention-days: 7
+
+  run-cross-built:
+    name: run ${{ matrix.target }} from every builder
+    needs: cross-build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x64mac
+            os: macos-15-intel
+          - target: arm64mac
+            os: macos-15
+          - target: x64musl
+            os: ubuntu-22.04
+          - target: x64v1musl
+            os: ubuntu-22.04
+          - target: arm64musl
+            os: ubuntu-24.04-arm
+          - target: arm64v1musl
+            os: ubuntu-24.04-arm
+          # TODO(https://github.com/roc-lang/roc/issues/8779): Add Windows
+          # MinGW consumers when Roc has targets compatible with Go cgo.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Download app artifacts from every builder
+        uses: actions/download-artifact@v4
+        with:
+          pattern: apps-*
+          path: ci-artifacts
+
+      - name: Run every case against every builder output
+        run: python scripts/run_ci_artifacts.py --artifacts-root ci-artifacts --target ${{ matrix.target }} --verbose
