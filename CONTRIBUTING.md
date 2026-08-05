@@ -15,8 +15,7 @@ target-specific artifact, such as Linux runtime vendoring.
 ```console
 python scripts/build.py --all
 go -C host test ./...
-roc fmt --check platform
-roc fmt --check examples
+python scripts/check_roc_format.py
 python scripts/test.py --operation all --verbose
 roc docs platform/main.roc --output=generated-docs --no-cache
 ```

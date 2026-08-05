@@ -87,9 +87,7 @@ jobs:
           CGO_ENABLED: "1"
 
       - name: Check Roc formatting
-        run: |
-          roc fmt --check platform
-          roc fmt --check examples
+        run: python scripts/check_roc_format.py
 
       - name: Generate platform documentation
         run: roc docs platform/main.roc --output=ci-docs --no-cache
