@@ -101,7 +101,7 @@ jobs:
         run: python scripts/build.py --all
 
       - name: Bundle platform, validate examples, and cross-compile test apps
-        run: python scripts/test.py --operation produce --output-dir ci-output/binaries --bundle-output-dir ci-output/bundle --target x64mac --target arm64mac --target x64musl --target x64v1musl --target arm64musl --target arm64v1musl --verbose
+        run: python scripts/test.py --operation produce --output-dir ci-output/binaries --bundle-output-dir ci-output/bundle --target x64mac --target arm64mac --target x64musl --target x64v1musl --target arm64musl --target arm64v1musl --target x64mingw --target x64v1mingw --target arm64mingw --target arm64v1mingw --verbose
 
       - name: Upload cross-compiled test apps
         uses: actions/upload-artifact@v4
@@ -131,8 +131,10 @@ jobs:
             os: ubuntu-24.04-arm
           - target: arm64v1musl
             os: ubuntu-24.04-arm
-          # TODO(https://github.com/roc-lang/roc/issues/8779): Add Windows
-          # MinGW consumers when Roc has targets compatible with Go cgo.
+          - target: x64mingw
+            os: windows-2022
+          - target: x64v1mingw
+            os: windows-2022
     steps:
       - name: Checkout
         uses: actions/checkout@v4

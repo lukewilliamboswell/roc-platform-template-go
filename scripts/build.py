@@ -33,6 +33,10 @@ TARGETS = {
     "x64v1musl": Target("linux", "amd64", "x86_64-linux-musl"),
     "arm64musl": Target("linux", "arm64", "aarch64-linux-musl"),
     "arm64v1musl": Target("linux", "arm64", "aarch64-linux-musl"),
+    "x64mingw": Target("windows", "amd64", "x86_64-windows-gnu"),
+    "x64v1mingw": Target("windows", "amd64", "x86_64-windows-gnu"),
+    "arm64mingw": Target("windows", "arm64", "aarch64-windows-gnu"),
+    "arm64v1mingw": Target("windows", "arm64", "aarch64-windows-gnu"),
 }
 
 
@@ -60,14 +64,16 @@ def native_target() -> str:
         return "arm64mac" if machine in {"arm64", "aarch64"} else "x64mac"
     if system == "Linux":
         return "arm64musl" if machine in {"arm64", "aarch64"} else "x64musl"
-    raise SystemExit(
-        "Windows Go hosts require Roc MinGW targets; "
-        "see https://github.com/roc-lang/roc/issues/8779"
-    )
+    if system == "Windows":
+        return "arm64mingw" if machine in {"arm64", "aarch64"} else "x64mingw"
+    raise SystemExit(f"Unsupported host platform: {system} {machine}")
 
 
 def build_target(name: str) -> None:
     target = TARGETS[name]
+    cflags = "-O2 -g0"
+    if target.goos == "windows":
+        cflags += " -fno-sanitize=all"
     print(
         f"Building Go host for {name} "
         f"({target.goos}/{target.goarch} via {target.zig_target})...",
@@ -82,7 +88,7 @@ def build_target(name: str) -> None:
             "GOARM64": "v8.0",
             "CGO_ENABLED": "1",
             "CC": f"zig cc -target {target.zig_target}",
-            "CGO_CFLAGS": "-O2 -g0",
+            "CGO_CFLAGS": cflags,
         }
     )
     with tempfile.TemporaryDirectory(prefix=f"roc-go-host-{name}-") as temporary:
@@ -96,6 +102,7 @@ def build_target(name: str) -> None:
                 "-buildmode=c-archive",
                 "-buildvcs=false",
                 "-trimpath",
+                "-ldflags=-s -w",
                 "-tags",
                 "netgo,osusergo",
                 "-o",
@@ -104,6 +111,10 @@ def build_target(name: str) -> None:
             env=env,
             check=True,
         )
+        if target.goos == "windows":
+            # Go's ARM64 c-archive omits the COFF archive symbol index that
+            # lld-link needs in order to pull the exported host callbacks.
+            subprocess.run(["zig", "ar", "s", str(temporary_output)], check=True)
         destination = ROOT / "platform" / "targets" / name / target.filename
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(temporary_output, destination)

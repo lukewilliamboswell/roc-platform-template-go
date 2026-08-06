@@ -83,12 +83,15 @@ Keep `THIRD_PARTY_LICENSES.md`, `licenses/`, provenance, and checksums in sync.
 
 ## Windows
 
-Do not label MinGW Go archives as Roc `x64win` or `arm64win` inputs. Those Roc
-targets are MSVC today. Windows application support remains blocked on
-[roc-lang/roc#8779](https://github.com/roc-lang/roc/issues/8779). When new
-MinGW targets land, update `.roc-version`, the target tables in
-`platform/main.roc`, `scripts/build.py`, `scripts/bundle.py`, and
-`scripts/test.py`, then enable Windows consumer jobs in CI.
+Go cgo archives use the MinGW ABI and must remain under Roc's `x64mingw`,
+`x64v1mingw`, `arm64mingw`, and `arm64v1mingw` target names. Do not relabel
+them as `x64win` or `arm64win`; those are MSVC targets with different startup,
+runtime, and linker requirements.
+
+The MinGW targets require a Roc nightly containing
+[roc-lang/roc#10637](https://github.com/roc-lang/roc/pull/10637). Keep Windows
+producer and consumer lanes enabled when updating `.roc-version`, and validate
+both Windows architectures even when only x86-64 can be run natively in CI.
 
 ## Review checklist
 

@@ -13,9 +13,14 @@ import shlex
 import shutil
 import string
 import subprocess
+import tempfile
 from pathlib import Path
 
-from canonicalize_runtime_object import canonicalize
+from canonicalize_runtime_object import (
+    CANONICAL_ROOT,
+    canonicalize,
+    strip_coff_debug_sections,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,21 +28,62 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROBE = SCRIPT_DIR / "runtime_probe.c"
 MANIFEST = SCRIPT_DIR / "zig_runtime.sha256"
 REQUIRED_ZIG_VERSION = "0.16.0"
-ARTIFACTS = ("crt1.o", "libc.a", "libzigc.a", "libcompiler_rt.a")
-TARGETS = ("x64musl", "x64v1musl", "arm64musl", "arm64v1musl")
+MUSL_ARTIFACTS = ("crt1.o", "libc.a", "libzigc.a", "libcompiler_rt.a")
+MINGW_COMPILED_ARCHIVES = ("libmingw32.lib", "zigc.lib", "compiler_rt.lib")
+MINGW_IMPORT_LIBRARIES = (
+    "api-ms-win-crt-conio-l1-1-0.lib",
+    "api-ms-win-crt-convert-l1-1-0.lib",
+    "api-ms-win-crt-environment-l1-1-0.lib",
+    "api-ms-win-crt-filesystem-l1-1-0.lib",
+    "api-ms-win-crt-heap-l1-1-0.lib",
+    "api-ms-win-crt-locale-l1-1-0.lib",
+    "api-ms-win-crt-math-l1-1-0.lib",
+    "api-ms-win-crt-multibyte-l1-1-0.lib",
+    "api-ms-win-crt-private-l1-1-0.lib",
+    "api-ms-win-crt-process-l1-1-0.lib",
+    "api-ms-win-crt-runtime-l1-1-0.lib",
+    "api-ms-win-crt-stdio-l1-1-0.lib",
+    "api-ms-win-crt-string-l1-1-0.lib",
+    "api-ms-win-crt-time-l1-1-0.lib",
+    "api-ms-win-crt-utility-l1-1-0.lib",
+    "advapi32.lib",
+    "kernel32.lib",
+    "ntdll.lib",
+    "shell32.lib",
+    "user32.lib",
+)
+MINGW_ARTIFACTS = (
+    "crt2.obj",
+    *MINGW_COMPILED_ARCHIVES,
+    *MINGW_IMPORT_LIBRARIES,
+)
+MUSL_TARGETS = ("x64musl", "x64v1musl", "arm64musl", "arm64v1musl")
+MINGW_TARGETS = ("x64mingw", "x64v1mingw", "arm64mingw", "arm64v1mingw")
+TARGET_ARTIFACTS = {
+    **{target: MUSL_ARTIFACTS for target in MUSL_TARGETS},
+    **{target: MINGW_ARTIFACTS for target in MINGW_TARGETS},
+}
 DARWIN_SYSROOT = Path("macos-sysroot/usr/lib/libSystem.tbd")
 
 
 def make_work_dir() -> Path:
-    # canonicalize_runtime_object uses an equal-length replacement so cache
-    # paths do not perturb object hashes.
-    parent = Path("/tmp")
-    if os.name != "posix" or not parent.is_dir():
-        raise RuntimeError("Runtime vendoring currently requires a POSIX /tmp directory")
+    parent = Path(
+        os.environ.get("ROC_GO_RUNTIME_WORK_PARENT", tempfile.gettempdir())
+    ).resolve()
+    suffix_length = 6
+    prefix_length = (
+        len(CANONICAL_ROOT) - len(os.fsencode(parent)) - 1 - suffix_length
+    )
+    if prefix_length < 1 or not parent.is_dir():
+        raise RuntimeError(
+            "Runtime work parent must exist and be short enough for reproducible paths"
+        )
+    base_prefix = "roc-go-zig-runtime."
+    prefix = (base_prefix + "-" * prefix_length)[:prefix_length]
     alphabet = string.ascii_letters + string.digits
     for _ in range(100):
-        suffix = "".join(secrets.choice(alphabet) for _ in range(6))
-        candidate = parent / f"roc-go-zig-runtime.{suffix}"
+        suffix = "".join(secrets.choice(alphabet) for _ in range(suffix_length))
+        candidate = parent / f"{prefix}{suffix}"
         try:
             candidate.mkdir()
             return candidate
@@ -50,21 +96,21 @@ def run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]
     return subprocess.run(args, check=True, **kwargs)
 
 
-def locate_artifacts(trace: str) -> dict[str, Path]:
+def locate_artifacts(trace: str, artifacts: tuple[str, ...]) -> dict[str, Path]:
     result: dict[str, Path] = {}
     for line in trace.splitlines():
-        if not line.startswith("ld.lld "):
+        if not line.startswith(("ld.lld ", "lld-link ")):
             continue
         for token in shlex.split(line):
             normalized = token.replace("\\", "/")
-            for artifact in ARTIFACTS:
+            for artifact in artifacts:
                 if normalized.endswith(f"/{artifact}"):
                     result[artifact] = Path(token)
     return result
 
 
 def normalize_archive(
-    input_archive: Path, output_archive: Path, work_dir: Path
+    input_archive: Path, output_archive: Path, work_dir: Path, *, coff: bool = False
 ) -> None:
     key = f"{output_archive.parent.name}-{output_archive.name}"
     members_dir = work_dir / "archive-members" / key
@@ -84,6 +130,8 @@ def normalize_archive(
                 stdout=stream,
             )
         canonicalize(stable_path, work_dir)
+        if coff:
+            strip_coff_debug_sections(stable_path)
         stable_members.append(stable_name)
     run(
         ["zig", "ar", "rcsD", str(output_archive), *stable_members],
@@ -91,7 +139,7 @@ def normalize_archive(
     )
 
 
-def build_runtime(
+def build_musl_runtime(
     roc_target: str, zig_target: str, work_dir: Path, generated_dir: Path
 ) -> None:
     target_work = work_dir / roc_target
@@ -135,8 +183,10 @@ def build_runtime(
     if result.returncode != 0:
         raise RuntimeError(f"zig cc failed for {roc_target}; trace: {trace_path}")
 
-    discovered = locate_artifacts(result.stderr)
-    missing = [name for name in ARTIFACTS if not discovered.get(name, Path()).is_file()]
+    discovered = locate_artifacts(result.stderr, MUSL_ARTIFACTS)
+    missing = [
+        name for name in MUSL_ARTIFACTS if not discovered.get(name, Path()).is_file()
+    ]
     if missing:
         raise RuntimeError(
             f"Could not locate {', '.join(missing)} for {roc_target}; trace: {trace_path}"
@@ -147,9 +197,73 @@ def build_runtime(
         snapshot = target_work / f"raw-{name}"
         shutil.copy2(source, snapshot)
         snapshots[name] = snapshot
-    shutil.copy2(snapshots["crt1.o"], output_dir / "crt1.o")
-    for name in ARTIFACTS[1:]:
+    crt = output_dir / "crt1.o"
+    shutil.copy2(snapshots["crt1.o"], crt)
+    for name in MUSL_ARTIFACTS[1:]:
         normalize_archive(snapshots[name], output_dir / name, work_dir)
+
+
+def build_mingw_runtime(
+    roc_target: str, zig_target: str, work_dir: Path, generated_dir: Path
+) -> None:
+    target_work = work_dir / roc_target
+    output_dir = generated_dir / roc_target
+    target_work.mkdir()
+    output_dir.mkdir(parents=True)
+    global_cache = target_work / "global-cache"
+    local_cache = target_work / "local-cache"
+    global_cache.mkdir()
+    local_cache.mkdir()
+    env = os.environ.copy()
+    env.update(
+        {
+            "ZIG_GLOBAL_CACHE_DIR": str(global_cache),
+            "ZIG_LOCAL_CACHE_DIR": str(local_cache),
+        }
+    )
+    result = subprocess.run(
+        [
+            "zig",
+            "cc",
+            "-target",
+            zig_target,
+            "-O2",
+            "-g0",
+            "-fno-sanitize=all",
+            "-s",
+            "-v",
+            str(PROBE),
+            "-o",
+            str(target_work / "probe.exe"),
+        ],
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    trace_path = target_work / "zig-cc.trace"
+    trace_path.write_text(result.stderr, encoding="utf-8")
+    if result.returncode != 0:
+        raise RuntimeError(f"zig cc failed for {roc_target}; trace: {trace_path}")
+
+    discovered = locate_artifacts(result.stderr, MINGW_ARTIFACTS)
+    missing = [
+        name for name in MINGW_ARTIFACTS if not discovered.get(name, Path()).is_file()
+    ]
+    if missing:
+        raise RuntimeError(
+            f"Could not locate {', '.join(missing)} for {roc_target}; trace: {trace_path}"
+        )
+
+    crt = output_dir / "crt2.obj"
+    shutil.copy2(discovered["crt2.obj"], crt)
+    canonicalize(crt, work_dir)
+    strip_coff_debug_sections(crt)
+    for name in MINGW_COMPILED_ARCHIVES:
+        normalize_archive(discovered[name], output_dir / name, work_dir, coff=True)
+    for name in MINGW_IMPORT_LIBRARIES:
+        shutil.copy2(discovered[name], output_dir / name)
 
 
 def digest(path: Path) -> str:
@@ -162,8 +276,8 @@ def digest(path: Path) -> str:
 
 def generated_manifest(generated_dir: Path) -> str:
     lines = []
-    for target in TARGETS:
-        for artifact in ARTIFACTS:
+    for target, artifacts in TARGET_ARTIFACTS.items():
+        for artifact in artifacts:
             relative = Path(target) / artifact
             lines.append(f"{digest(generated_dir / relative)}  {relative.as_posix()}")
     lines.append(
@@ -193,12 +307,25 @@ def main() -> None:
     try:
         generated_dir = work_dir / "generated"
         generated_dir.mkdir()
-        build_runtime("x64musl", "x86_64-linux-musl", work_dir, generated_dir)
-        build_runtime("arm64musl", "aarch64-linux-musl", work_dir, generated_dir)
+        build_musl_runtime("x64musl", "x86_64-linux-musl", work_dir, generated_dir)
+        build_musl_runtime("arm64musl", "aarch64-linux-musl", work_dir, generated_dir)
 
         for source, destination in (
             ("x64musl", "x64v1musl"),
             ("arm64musl", "arm64v1musl"),
+        ):
+            shutil.copytree(generated_dir / source, generated_dir / destination)
+
+        build_mingw_runtime(
+            "x64mingw", "x86_64-windows-gnu", work_dir, generated_dir
+        )
+        build_mingw_runtime(
+            "arm64mingw", "aarch64-windows-gnu", work_dir, generated_dir
+        )
+
+        for source, destination in (
+            ("x64mingw", "x64v1mingw"),
+            ("arm64mingw", "arm64v1mingw"),
         ):
             shutil.copytree(generated_dir / source, generated_dir / destination)
 
@@ -232,10 +359,10 @@ def main() -> None:
             )
             raise RuntimeError(f"Generated runtime checksums changed:\n{difference}")
 
-        for target in TARGETS:
+        for target, artifacts in TARGET_ARTIFACTS.items():
             destination_dir = ROOT / "platform" / "targets" / target
             destination_dir.mkdir(parents=True, exist_ok=True)
-            for artifact in ARTIFACTS:
+            for artifact in artifacts:
                 source = generated_dir / target / artifact
                 destination = destination_dir / artifact
                 if args.check:

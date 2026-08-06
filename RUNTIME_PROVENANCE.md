@@ -1,16 +1,19 @@
 # Vendored runtime provenance
 
-The Linux platform targets intentionally check in their C startup and runtime
-archives. This lets Roc link a standalone static executable without requiring
-the application user to install a C toolchain.
+The Linux and Windows platform targets intentionally check in their C startup,
+runtime, and system-import archives. This lets Roc link standalone executables
+without requiring the application user to install a C toolchain or SDK.
 
 ## Source
 
 - Toolchain: Zig 0.16.0
 - Upstream release: <https://ziglang.org/download/0.16.0/>
 - libc: musl 1.2.5 plus the security fixes shipped by Zig 0.16.0
-- Source targets: `x86_64-linux-musl` and `aarch64-linux-musl`
-- Roc targets: `x64musl`, `x64v1musl`, `arm64musl`, and `arm64v1musl`
+- Windows runtime: mingw-w64 and Universal CRT import libraries shipped by Zig
+- Source targets: `x86_64-linux-musl`, `aarch64-linux-musl`,
+  `x86_64-windows-gnu`, and `aarch64-windows-gnu`
+- Roc targets: `x64musl`, `x64v1musl`, `arm64musl`, `arm64v1musl`,
+  `x64mingw`, `x64v1mingw`, `arm64mingw`, and `arm64v1mingw`
 - macOS interface stub: Zig's `lib/libc/darwin/libSystem.tbd`
 
 Zig 0.16.0 builds its static musl environment from both musl source and Zig
@@ -24,6 +27,11 @@ them into an opaque archive:
 
 The Go-specific musl constructor adapter is not patched into these artifacts.
 It is the reviewed source in `host/startup.c` and is built into `libhost.a`.
+
+The MinGW targets carry Zig's `crt2.obj`, `libmingw32.lib`, `zigc.lib`,
+`compiler_rt.lib`, and the exact UCRT/Windows import libraries from Zig's
+link recipe. Import libraries contain symbol metadata for Windows system DLLs;
+the DLL implementations remain part of Windows and are not redistributed.
 
 The Darwin text-based interface stub is checked in at
 `platform/targets/macos-sysroot/usr/lib/libSystem.tbd`. Roc automatically uses
@@ -54,11 +62,16 @@ CI links and executes the checked-in artifacts through freshly built platform
 bundles; it does not regenerate toolchain runtime libraries.
 
 Zig's archive members contain randomized cache paths. The vendoring script
-extracts them in their original order, gives them stable indexed names, and
-replaces only that equal-length cache-root string with a canonical spelling.
-This makes independent clean builds byte-identical without changing code,
-symbols, relocations, or section sizes.
+uses a fixed-length temporary path, extracts members in their original order,
+gives them stable indexed names, and replaces only that equal-length cache-root
+string with a canonical spelling. MinGW objects are built with stripped output;
+their residual CodeView payloads are cleared and marked for linker removal
+without changing section layout, code, symbols, or relocations. Go host archives
+are built with symbol and DWARF stripping enabled, and Windows archives are
+re-indexed with Zig for consistent COFF linker lookup. Independent clean builds
+are therefore byte-identical without embedding a maintainer or checkout path.
 
-The `v1` target copies are byte-identical to their architecture's base musl
-runtime. Roc's `v1` distinction applies to application CPU features, while
-these C ABI/runtime inputs are already built for the architecture baseline.
+The `v1` target copies are byte-identical to their architecture's base musl or
+MinGW target. Roc's `v1` distinction applies to application CPU features,
+while these C ABI/runtime inputs are already built for the architecture
+baseline.
