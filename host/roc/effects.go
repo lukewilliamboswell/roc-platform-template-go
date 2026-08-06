@@ -31,21 +31,21 @@ func roc_stderr_line(message C.RocStr) C.HostStderrLineResult {
 	defer owned.DecRef()
 
 	if _, err := fmt.Fprintln(os.Stderr, owned.String()); err != nil {
-		return C.roc_host_stderr_line_err(toCRocStr(NewRocStr(err.Error())))
+		return C.HostStderrLineResult_make_err(toCRocStr(NewRocStr(err.Error())))
 	}
-	return C.roc_host_stderr_line_ok()
+	return C.HostStderrLineResult_make_ok()
 }
 
 //export roc_stdin_line
 func roc_stdin_line() C.HostStdinLineResult {
 	line, err := stdin.ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
-		return C.roc_host_stdin_line_err(toCRocStr(NewRocStr(err.Error())))
+		return C.HostStdinLineResult_make_err(toCRocStr(NewRocStr(err.Error())))
 	}
 
 	line = strings.TrimSuffix(line, "\n")
 	line = strings.TrimSuffix(line, "\r")
-	return C.roc_host_stdin_line_ok(toCRocStr(NewRocStr(line)))
+	return C.HostStdinLineResult_make_ok(toCRocStr(NewRocStr(line)))
 }
 
 //export roc_stdout_line
@@ -54,7 +54,7 @@ func roc_stdout_line(message C.RocStr) C.HostStdoutLineResult {
 	defer owned.DecRef()
 
 	if _, err := fmt.Fprintln(os.Stdout, owned.String()); err != nil {
-		return C.roc_host_stdout_line_err(toCRocStr(NewRocStr(err.Error())))
+		return C.HostStdoutLineResult_make_err(toCRocStr(NewRocStr(err.Error())))
 	}
-	return C.roc_host_stdout_line_ok()
+	return C.HostStdoutLineResult_make_ok()
 }

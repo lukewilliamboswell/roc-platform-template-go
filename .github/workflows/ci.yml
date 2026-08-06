@@ -77,6 +77,11 @@ jobs:
           roc version
           python --version
 
+      - name: Check generated C host bindings
+        # `roc glue` is targetless, so every producer would generate the same file.
+        if: matrix.builder == 'linux-x64'
+        run: python scripts/generate_c_glue.py --check
+
       - name: Test Go host units
         working-directory: host
         run: |
