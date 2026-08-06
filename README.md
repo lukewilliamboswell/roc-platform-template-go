@@ -65,6 +65,16 @@ go -C host test ./...
 python scripts/test.py --operation all --verbose
 ```
 
+The C ABI header consumed by the Go host is generated from `platform/main.roc`
+with Roc's `CGlue.roc`. Regenerate it after changing the platform boundary:
+
+```console
+python scripts/generate_c_glue.py
+```
+
+This command uses `.roc-version` for both the compiler revision and the glue
+spec revision; CI checks that the committed header is current.
+
 The test command does not point examples at `../platform/main.roc`. It invokes
 `roc bundle` to create a fresh platform package, serves that `.tar.zst` over
 localhost HTTP, rewrites temporary example copies to the bundle URL, and then

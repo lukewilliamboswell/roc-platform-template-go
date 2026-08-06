@@ -77,6 +77,9 @@ jobs:
           roc version
           python --version
 
+      - name: Check generated C host bindings
+        run: python scripts/generate_c_glue.py --check
+
       - name: Test Go host units
         working-directory: host
         run: |

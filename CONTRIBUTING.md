@@ -49,17 +49,23 @@ The runner rejects unexplained skips and non-GitHub issue links.
 
 ## Roc ABI changes
 
-`host/roc/roc_std.h` is the C boundary shared by Go and Roc. When hosted
-functions or platform types change, generate C glue from the same pinned Roc
-source and compare layouts, result tags, ownership, and exported signatures:
+`host/roc/roc_platform_abi.h` is the generated C boundary shared by Go and
+Roc. When hosted functions or platform types change, regenerate it with:
 
 ```console
-roc glue path/to/roc/src/glue/src/CGlue.roc /tmp/roc-go-glue platform/main.roc
+python scripts/generate_c_glue.py
 ```
 
-Update the C static assertions, Go representations, ownership tests, and
-integration cases together. Hosted refcounted arguments are owned by the host
-and must be decremented. Values returned to Roc transfer ownership to Roc.
+The generator reads `.roc-version`, verifies that the active `roc` executable
+comes from that nightly, and downloads `CGlue.roc` from the same immutable Roc
+revision. CI runs `python scripts/generate_c_glue.py --check` to reject stale
+bindings. For offline compiler development, pass `--glue-spec` with
+`CGlue.roc` from an exact matching Roc source checkout.
+
+Do not edit the generated header by hand. Update the Go representations,
+ownership tests, and integration cases with any ABI change. Hosted refcounted
+arguments are owned by the host and must be decremented. Values returned to
+Roc transfer ownership to Roc.
 
 The Linux startup adapter in `host/startup.c` is intentional: Go c-archives
 expect process arguments in their runtime constructor, while musl normally
