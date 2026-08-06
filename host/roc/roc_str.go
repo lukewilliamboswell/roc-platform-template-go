@@ -1,66 +1,75 @@
 package roc
 
-/*
-#include "./roc_std.h"
-*/
-import "C"
-import (
-	"unsafe"
-)
+import "unsafe"
 
-type RocStr C.struct_RocStr
+const seamlessSliceTag = uintptr(1)
+
+// RocStr is the natural C ABI representation of Roc's Str type.
+type RocStr struct {
+	Bytes              unsafe.Pointer
+	CapacityOrAllocPtr uintptr
+	Length             uintptr
+}
 
 func NewRocStr(str string) RocStr {
-	ptr := allocForRoc(len(str))
+	var result RocStr
+	structBytes := int(unsafe.Sizeof(result))
 
-	var rocStr RocStr
-	rocStr.len = C.size_t(len(str))
-	rocStr.capacity = rocStr.len
-	rocStr.bytes = (*C.char)(unsafe.Pointer(ptr))
+	if len(str) < structBytes {
+		bytes := unsafe.Slice((*byte)(unsafe.Pointer(&result)), structBytes)
+		copy(bytes, str)
+		bytes[structBytes-1] = byte(len(str)) | 0x80
+		return result
+	}
 
-	dataSlice := unsafe.Slice((*byte)(ptr), len(str))
-	copy(dataSlice, []byte(str))
-
-	return rocStr
+	ptr := allocForRoc(uintptr(len(str)))
+	copy(unsafe.Slice((*byte)(ptr), len(str)), str)
+	return RocStr{
+		Bytes:              ptr,
+		CapacityOrAllocPtr: uintptr(len(str)) << 1,
+		Length:             uintptr(len(str)),
+	}
 }
 
 func (r RocStr) Small() bool {
-	return int(r.capacity) < 0
+	return int(r.Length) < 0
+}
+
+func (r RocStr) IsSeamlessSlice() bool {
+	return !r.Small() && r.CapacityOrAllocPtr&seamlessSliceTag != 0
+}
+
+func (r RocStr) Len() int {
+	if r.Small() {
+		bytes := unsafe.Slice((*byte)(unsafe.Pointer(&r)), int(unsafe.Sizeof(r)))
+		return int(bytes[len(bytes)-1] ^ 0x80)
+	}
+	return int(r.Length)
 }
 
 func (r RocStr) String() string {
+	length := r.Len()
 	if r.Small() {
-		ptr := (*byte)(unsafe.Pointer(&r))
-
-		byteLen := 12
-		if is64Bit {
-			byteLen = 24
-		}
-
-		shortStr := unsafe.String(ptr, byteLen)
-		len := shortStr[byteLen-1] ^ 128
-		return shortStr[:len]
+		return string(unsafe.Slice((*byte)(unsafe.Pointer(&r)), length))
 	}
-
-	// Remove the bit for seamless string
-	len := (uint(r.len) << 1) >> 1
-	ptr := (*byte)(unsafe.Pointer(r.bytes))
-	return unsafe.String(ptr, len)
+	if r.Bytes == nil {
+		return ""
+	}
+	return string(unsafe.Slice((*byte)(r.Bytes), length))
 }
 
-func (r RocStr) C() C.struct_RocStr {
-	return C.struct_RocStr(r)
-}
-
-func (r *RocStr) CPtr() *C.struct_RocStr {
-	return (*C.struct_RocStr)(r)
+func (r RocStr) allocationPtr() unsafe.Pointer {
+	if r.IsSeamlessSlice() {
+		return pointerFromUintptr(r.CapacityOrAllocPtr &^ seamlessSliceTag)
+	}
+	return r.Bytes
 }
 
 func (r RocStr) DecRef() {
-	ptr := unsafe.Pointer(r.bytes)
-	if r.Small() || ptr == nil {
+	if r.Small() {
 		return
 	}
-
-	decRefCount(ptr)
+	if ptr := r.allocationPtr(); ptr != nil {
+		decRefCount(ptr, uintptr(intBytes), uintptr(intBytes))
+	}
 }

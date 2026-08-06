@@ -1,93 +1,54 @@
 package roc
 
 /*
-#cgo LDFLAGS: -L.. -lapp
 #include "./roc_std.h"
+
+static inline void *roc_pointer_from_uintptr(uintptr_t value) {
+	return (void *)value;
+}
 */
 import "C"
 
 import (
-	"fmt"
-	"os"
+	"sync/atomic"
 	"unsafe"
 )
 
-const refcountOne = 1 << 63
-const is64Bit = uint64(^uintptr(0)) == ^uint64(0)
 const intSize = 32 << (^uint(0) >> 63)
 const intBytes = intSize / 8
 
-// allocForRoc allocates memory. Prefixes that memory with a refcounter set to
-// one.
-func allocForRoc(size int) unsafe.Pointer {
-	// TODO: find out alignment
-	refCountPtr := roc_alloc(C.size_t(size)+intBytes, intBytes)
-	ptr := unsafe.Add(refCountPtr, intBytes)
-	setRefCountToOne(ptr)
+func allocRaw(size, alignment uintptr) unsafe.Pointer {
+	return C.roc_alloc(C.size_t(size), C.size_t(alignment))
+}
+
+func freeRaw(ptr unsafe.Pointer, alignment uintptr) {
+	C.roc_dealloc(ptr, C.size_t(alignment))
+}
+
+// pointerFromUintptr decodes a pointer stored in a Roc ABI word. The memory is
+// allocated by the C runtime, never by Go, so it is safe to recover in C.
+func pointerFromUintptr(value uintptr) unsafe.Pointer {
+	return C.roc_pointer_from_uintptr(C.uintptr_t(value))
+}
+
+// allocForRoc allocates a Roc value with one pointer-sized refcount word.
+func allocForRoc(size uintptr) unsafe.Pointer {
+	base := allocRaw(size+uintptr(intBytes), uintptr(intBytes))
+	ptr := unsafe.Add(base, intBytes)
+	*(*uintptr)(unsafe.Add(ptr, -intBytes)) = 1
 	return ptr
 }
 
-// freeForRoc frees the memory with its refcounter.
-func freeForRoc(ptr unsafe.Pointer) {
-	refcountPtr := unsafe.Add(ptr, -intBytes)
-	roc_dealloc(refcountPtr, 0)
-}
-
-// decRefCount reduces the refcounter by one.
-//
-// If the refcounter gets 0, the memory is freed.
-func decRefCount(ptr unsafe.Pointer) {
-	refcountPtr := unsafe.Add(ptr, -intBytes)
-
-	switch *(*uint)(refcountPtr) {
-	case refcountOne:
-		freeForRoc(ptr)
-	case 0:
-		// Data is static. Nothing to do
-	default:
-		*(*uint)(refcountPtr) -= 1
+// decRefCount releases an allocation whose visible data starts at ptr.
+func decRefCount(ptr unsafe.Pointer, headerBytes, alignment uintptr) bool {
+	refcountPtr := (*uintptr)(unsafe.Add(ptr, -intBytes))
+	if atomic.LoadUintptr(refcountPtr) == 0 {
+		return false
 	}
-}
-
-func setRefCountToInfinity(ptr unsafe.Pointer) {
-	// Setting the refcount to 0 tells roc, not to modify it.
-	refcountPtr := unsafe.Add(ptr, -intBytes)
-	*(*uint)(refcountPtr) = 0
-}
-
-func setRefCountToOne(ptr unsafe.Pointer) {
-	refcountPtr := unsafe.Add(ptr, -intBytes)
-	*(*uint)(refcountPtr) = refcountOne
-}
-
-//export roc_alloc
-func roc_alloc(size C.size_t, alignment int) unsafe.Pointer {
-	_ = alignment
-	return C.malloc(size)
-}
-
-//export roc_realloc
-func roc_realloc(ptr unsafe.Pointer, newSize, _ C.size_t, alignment int) unsafe.Pointer {
-	_ = alignment
-	return C.realloc(ptr, newSize)
-}
-
-//export roc_dealloc
-func roc_dealloc(ptr unsafe.Pointer, alignment int) {
-	_ = alignment
-	C.free(ptr)
-}
-
-//export roc_panic
-func roc_panic(msg *RocStr, tagID C.uint) {
-	panic(msg.String())
-}
-
-//export roc_dbg
-func roc_dbg(loc *RocStr, msg *RocStr, src *RocStr) {
-	if src.String() == msg.String() {
-		fmt.Fprintf(os.Stderr, "[%s] {%s}\n", loc, msg)
-	} else {
-		fmt.Fprintf(os.Stderr, "[%s] {%s} = {%s}\n", loc, src, msg)
+	if atomic.AddUintptr(refcountPtr, ^uintptr(0)) != 0 {
+		return false
 	}
+
+	freeRaw(unsafe.Add(ptr, -int(headerBytes)), alignment)
+	return true
 }

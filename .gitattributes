@@ -1,0 +1,2 @@
+*.roc text eol=lf
+platform/targets/macos-sysroot/usr/lib/libSystem.tbd binary
