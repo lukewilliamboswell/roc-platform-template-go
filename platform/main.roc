@@ -40,7 +40,10 @@ main_for_host! = |args| {
 			# Reporting has reached the process boundary, so a broken stderr
 			# cannot be propagated any further and is safely ignored.
 			Stderr.line!("ERROR: ${Str.inspect(other)}") ?? {}
-			-1
+			# 1 is the conventional generic failure code and means the same
+			# thing on every OS; -1 would read as 255 on POSIX but as
+			# 4294967295 on Windows, where exit codes are 32-bit.
+			1
 		}
 	}
 }
