@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_ZIG_VERSION = "0.16.0"
-REQUIRED_GO_MINOR = "go1.26"
+REQUIRED_GO_MINOR = "go1.27"
 
 
 @dataclass(frozen=True)
