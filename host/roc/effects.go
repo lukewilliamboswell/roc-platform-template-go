@@ -6,16 +6,10 @@ package roc
 import "C"
 
 import (
-	"bufio"
-	"errors"
 	"fmt"
-	"io"
 	"os"
-	"strings"
 	"unsafe"
 )
-
-var stdin = bufio.NewReader(os.Stdin)
 
 func fromCRocStr(value C.RocStr) RocStr {
 	return *(*RocStr)(unsafe.Pointer(&value))
@@ -35,19 +29,6 @@ func go_roc_stderr_line(result *C.HostStderrLineResult, message C.RocStr) {
 		return
 	}
 	*result = C.HostStderrLineResult_make_ok()
-}
-
-//export go_roc_stdin_line
-func go_roc_stdin_line(result *C.HostStdinLineResult) {
-	line, err := stdin.ReadString('\n')
-	if err != nil && !errors.Is(err, io.EOF) {
-		*result = C.HostStdinLineResult_make_err(toCRocStr(NewRocStr(err.Error())))
-		return
-	}
-
-	line = strings.TrimSuffix(line, "\n")
-	line = strings.TrimSuffix(line, "\r")
-	*result = C.HostStdinLineResult_make_ok(toCRocStr(NewRocStr(line)))
 }
 
 //export go_roc_stdout_line
