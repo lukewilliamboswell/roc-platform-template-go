@@ -14,6 +14,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  vendored-runtime-integrity:
+    name: verify vendored runtime checksums
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Verify every vendored runtime artifact
+        run: python scripts/vendor_zig_runtime.py --verify-hashes
+
   cross-build:
     name: cross-build (${{ matrix.builder }})
     runs-on: ${{ matrix.os }}

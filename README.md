@@ -127,11 +127,13 @@ problems and builder-host-dependent output failures.
 ## Runtime provenance and licensing
 
 Linux and Windows C runtime/link inputs are explicit checked-in artifacts
-generated with the pinned Zig toolchain. Normal CI consumes them; it does not
-regenerate them. Maintainers can reproduce or update them using the Python
-process documented in [RUNTIME_PROVENANCE.md](RUNTIME_PROVENANCE.md).
-Checksums are pinned in
-[`scripts/zig_runtime.sha256`](scripts/zig_runtime.sha256).
+generated with the pinned Zig toolchain. Normal CI verifies every vendored file
+against the central checksum manifest and consumes them; it does not regenerate
+them. Maintainers can reproduce or update them using the Python process
+documented in [RUNTIME_PROVENANCE.md](RUNTIME_PROVENANCE.md). Checksums are
+pinned in [`scripts/zig_runtime.sha256`](scripts/zig_runtime.sha256).
+Relevant changes on `main` also reproduce the artifacts and publish signed
+[SLSA provenance](SLSA_PROVENANCE.md) through GitHub's attestations service.
 
 The same process vendors Zig's text-only Darwin `libSystem.tbd` interface so
 non-macOS producers can cross-link macOS artifacts. The runtime itself is

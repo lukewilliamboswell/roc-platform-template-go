@@ -286,15 +286,48 @@ def generated_manifest(generated_dir: Path) -> str:
     return "\n".join(lines) + "\n"
 
 
+def verify_checked_in_hashes() -> None:
+    vendored_dir = ROOT / "platform" / "targets"
+    try:
+        actual_manifest = generated_manifest(vendored_dir)
+        expected_manifest = MANIFEST.read_text(encoding="utf-8")
+    except OSError as error:
+        raise SystemExit(f"Could not verify vendored runtime artifacts: {error}") from None
+
+    if actual_manifest != expected_manifest:
+        difference = "".join(
+            difflib.unified_diff(
+                expected_manifest.splitlines(keepends=True),
+                actual_manifest.splitlines(keepends=True),
+                fromfile=str(MANIFEST),
+                tofile="checked-in-runtime.sha256",
+            )
+        )
+        raise SystemExit(f"Vendored runtime checksums do not match:\n{difference}")
+
+    manifest_path = MANIFEST.relative_to(ROOT)
+    print(f"Verified all vendored runtime artifacts against {manifest_path}.")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--check",
         action="store_true",
         help="rebuild and byte-compare instead of replacing checked-in files",
     )
+    mode.add_argument(
+        "--verify-hashes",
+        action="store_true",
+        help="verify checked-in files against the central checksum manifest",
+    )
     parser.add_argument("--keep-work", action="store_true")
     args = parser.parse_args()
+
+    if args.verify_hashes:
+        verify_checked_in_hashes()
+        return
 
     version = subprocess.check_output(["zig", "version"], text=True).strip()
     if version != REQUIRED_ZIG_VERSION:

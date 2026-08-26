@@ -50,16 +50,26 @@ python scripts/vendor_zig_runtime.py
 
 # Rebuild in isolated caches and byte-compare with the checked-in artifacts
 python scripts/vendor_zig_runtime.py --check
+
+# Verify every checked-in artifact against the central checksum manifest
+python scripts/vendor_zig_runtime.py --verify-hashes
 ```
 
 `scripts/zig_runtime.sha256` pins every emitted file, including the Darwin
-interface stub. A Zig upgrade is an explicit review: update the version in the
-script, inspect upstream runtime and license changes, regenerate the files,
-then update the manifest.
+interface stub. CI runs the fast hash verification and fails for a missing,
+changed, unlisted, or incorrectly recorded runtime artifact. A Zig upgrade is
+an explicit review: update the version in the script, inspect upstream runtime
+and license changes, regenerate the files, then update the manifest.
 
-This maintainer-only reproduction is intentionally not part of normal CI.
-CI links and executes the checked-in artifacts through freshly built platform
-bundles; it does not regenerate toolchain runtime libraries.
+After relevant changes land on `main`, the dedicated provenance workflow
+reproduces the artifacts and creates a signed SLSA build-provenance attestation.
+See [`SLSA_PROVENANCE.md`](SLSA_PROVENANCE.md) for the trust model and consumer
+verification command.
+
+The maintainer-only reproduction is intentionally not part of normal CI. CI
+validates the central manifest, then links and executes the checked-in artifacts
+through freshly built platform bundles; it does not regenerate toolchain runtime
+libraries.
 
 Zig's archive members contain randomized cache paths. The vendoring script
 uses a fixed-length temporary path, extracts members in their original order,

@@ -1,0 +1,55 @@
+name: Vendored runtime provenance
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/runtime-provenance.yml
+      - platform/targets/**
+      - "!platform/targets/**/libhost.a"
+      - "!platform/targets/**/libhost.h"
+      - scripts/canonicalize_runtime_object.py
+      - scripts/runtime_probe.c
+      - scripts/vendor_zig_runtime.py
+      - scripts/zig_runtime.sha256
+
+permissions:
+  contents: read
+
+jobs:
+  attest:
+    name: reproduce and attest vendored runtimes
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - name: Checkout exact source revision
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Install Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Install pinned Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.16.0
+          use-cache: false
+
+      - name: Verify central checksum manifest
+        run: python scripts/vendor_zig_runtime.py --verify-hashes
+
+      - name: Reproduce and byte-compare every runtime artifact
+        run: python scripts/vendor_zig_runtime.py --check
+
+      - name: Attest SLSA build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: scripts/zig_runtime.sha256

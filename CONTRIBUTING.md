@@ -78,6 +78,10 @@ Routine changes must not regenerate runtime archives. For a deliberate Zig or
 musl update, follow `RUNTIME_PROVENANCE.md`, review upstream license changes,
 run `python scripts/vendor_zig_runtime.py`, inspect symbol/archive differences,
 then run `python scripts/vendor_zig_runtime.py --check` from a clean build.
+The fast CI-equivalent integrity check is
+`python scripts/vendor_zig_runtime.py --verify-hashes`.
+Merging a change to the vendoring recipe or checksum manifest triggers the
+separate signed-provenance workflow described in `SLSA_PROVENANCE.md`.
 
 Keep `THIRD_PARTY_LICENSES.md`, `licenses/`, provenance, and checksums in sync.
 
