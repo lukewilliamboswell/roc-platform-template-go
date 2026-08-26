@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_ZIG_VERSION = "0.16.0"
-REQUIRED_GO_MINOR = "go1.26"
+REQUIRED_GO_MINOR = "go1.27"
 
 
 @dataclass(frozen=True)
@@ -33,6 +33,10 @@ TARGETS = {
     "x64v1musl": Target("linux", "amd64", "x86_64-linux-musl"),
     "arm64musl": Target("linux", "arm64", "aarch64-linux-musl"),
     "arm64v1musl": Target("linux", "arm64", "aarch64-linux-musl"),
+    "x64mingw": Target("windows", "amd64", "x86_64-windows-gnu"),
+    "x64v1mingw": Target("windows", "amd64", "x86_64-windows-gnu"),
+    "arm64mingw": Target("windows", "arm64", "aarch64-windows-gnu"),
+    "arm64v1mingw": Target("windows", "arm64", "aarch64-windows-gnu"),
 }
 
 
@@ -60,14 +64,42 @@ def native_target() -> str:
         return "arm64mac" if machine in {"arm64", "aarch64"} else "x64mac"
     if system == "Linux":
         return "arm64musl" if machine in {"arm64", "aarch64"} else "x64musl"
-    raise SystemExit(
-        "Windows Go hosts require Roc MinGW targets; "
-        "see https://github.com/roc-lang/roc/issues/8779"
+    if system == "Windows":
+        return "arm64mingw" if machine in {"arm64", "aarch64"} else "x64mingw"
+    raise SystemExit(f"Unsupported host platform: {system} {machine}")
+
+
+def rebuild_coff_archive_index(archive: Path, work_dir: Path) -> None:
+    members_dir = work_dir / "coff-members"
+    members_dir.mkdir()
+    members = subprocess.check_output(
+        ["zig", "ar", "t", str(archive)], text=True
+    ).splitlines()
+    stable_members: list[str] = []
+    for index, member in enumerate(members):
+        stable_name = f"{index:04d}-{Path(member).name}"
+        with (members_dir / stable_name).open("wb") as stream:
+            subprocess.run(
+                ["zig", "ar", "pP", str(archive), member],
+                stdout=stream,
+                check=True,
+            )
+        stable_members.append(stable_name)
+
+    rebuilt = work_dir / "reindexed-libhost.a"
+    subprocess.run(
+        ["zig", "ar", "rcsD", str(rebuilt), *stable_members],
+        cwd=members_dir,
+        check=True,
     )
+    shutil.move(rebuilt, archive)
 
 
 def build_target(name: str) -> None:
     target = TARGETS[name]
+    cflags = "-O2 -g0"
+    if target.goos == "windows":
+        cflags += " -fno-sanitize=all"
     print(
         f"Building Go host for {name} "
         f"({target.goos}/{target.goarch} via {target.zig_target})...",
@@ -82,7 +114,7 @@ def build_target(name: str) -> None:
             "GOARM64": "v8.0",
             "CGO_ENABLED": "1",
             "CC": f"zig cc -target {target.zig_target}",
-            "CGO_CFLAGS": "-O2 -g0",
+            "CGO_CFLAGS": cflags,
         }
     )
     with tempfile.TemporaryDirectory(prefix=f"roc-go-host-{name}-") as temporary:
@@ -96,6 +128,7 @@ def build_target(name: str) -> None:
                 "-buildmode=c-archive",
                 "-buildvcs=false",
                 "-trimpath",
+                "-ldflags=-s -w",
                 "-tags",
                 "netgo,osusergo",
                 "-o",
@@ -104,6 +137,12 @@ def build_target(name: str) -> None:
             env=env,
             check=True,
         )
+        if target.goos == "windows":
+            # Go's COFF archive index is producer-dependent, and lld-link
+            # cannot discover its symbols in archives emitted on macOS.
+            # Rebuilding the archive gives every producer the same LLVM COFF
+            # index and also fixes Go's missing ARM64 archive index.
+            rebuild_coff_archive_index(temporary_output, Path(temporary))
         destination = ROOT / "platform" / "targets" / name / target.filename
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(temporary_output, destination)

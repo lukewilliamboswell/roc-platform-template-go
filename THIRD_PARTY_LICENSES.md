@@ -7,6 +7,15 @@ The files below are vendored as static-link inputs under
 - `libzigc.a`: Zig libc 0.16.0
 - `libcompiler_rt.a`: compiler runtime emitted by Zig 0.16.0
 
+The MinGW targets under
+`platform/targets/{x64mingw,x64v1mingw,arm64mingw,arm64v1mingw}/` vendor:
+
+- `crt2.obj` and `libmingw32.lib`: mingw-w64 startup and C runtime support
+- `zigc.lib` and `compiler_rt.lib`: Zig libc and compiler runtime support
+- `api-ms-win-crt-*.lib` and the named Windows `.lib` files: import metadata
+  for Windows system libraries; these archives contain no Microsoft runtime
+  implementation
+
 The platform also vendors Zig's Darwin text-based interface stub at
 `platform/targets/macos-sysroot/usr/lib/libSystem.tbd`. It supplies symbol
 metadata for cross-linking; it does not contain Apple's libSystem runtime.
@@ -70,3 +79,10 @@ SOFTWARE.
 The exact Zig distribution notice is checked in at
 [`licenses/zig-LICENSE`](licenses/zig-LICENSE). Zig's compiler runtime is Zig
 source distributed under this project license.
+
+## mingw-w64
+
+The mingw-w64 runtime and startup sources are distributed under the Zope
+Public License 2.1, except for files marked with their own public-domain, BSD,
+or LGPL terms. The exact notice shipped in Zig 0.16.0 is checked in at
+[`licenses/mingw-w64-COPYING`](licenses/mingw-w64-COPYING).

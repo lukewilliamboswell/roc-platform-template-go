@@ -12,6 +12,7 @@ import platform
 import re
 import shutil
 import stat
+import struct
 import subprocess
 import sys
 import tempfile
@@ -32,6 +33,10 @@ SUPPORTED_TARGETS = (
     "x64v1musl",
     "arm64musl",
     "arm64v1musl",
+    "x64mingw",
+    "x64v1mingw",
+    "arm64mingw",
+    "arm64v1mingw",
 )
 TARGET_PLATFORMS = {
     "x64mac": "macos",
@@ -40,8 +45,18 @@ TARGET_PLATFORMS = {
     "x64v1musl": "linux",
     "arm64musl": "linux",
     "arm64v1musl": "linux",
+    "x64mingw": "windows",
+    "x64v1mingw": "windows",
+    "arm64mingw": "windows",
+    "arm64v1mingw": "windows",
 }
 KNOWN_PLATFORMS = frozenset({"linux", "macos", "windows"})
+WINDOWS_MACHINE_TYPES = {
+    "x64mingw": 0x8664,
+    "x64v1mingw": 0x8664,
+    "arm64mingw": 0xAA64,
+    "arm64v1mingw": 0xAA64,
+}
 APP_KEYS = frozenset(
     {"path", "enabled", "stages", "skip_reasons", "platforms", "cases", "build_args"}
 )
@@ -609,6 +624,25 @@ def build_app(
     print(f"PASS build: {source.name} [{target or 'native'}]")
 
 
+def verify_windows_binary(binary: Path, target: str) -> None:
+    contents = binary.read_bytes()
+    if len(contents) < 0x40 or contents[:2] != b"MZ":
+        raise TestFailure(f"{binary}: missing DOS/PE header")
+    pe_offset = struct.unpack_from("<I", contents, 0x3C)[0]
+    if (
+        pe_offset + 6 > len(contents)
+        or contents[pe_offset : pe_offset + 4] != b"PE\0\0"
+    ):
+        raise TestFailure(f"{binary}: missing PE signature")
+    machine = struct.unpack_from("<H", contents, pe_offset + 4)[0]
+    expected = WINDOWS_MACHINE_TYPES[target]
+    if machine != expected:
+        raise TestFailure(
+            f"{binary}: PE machine 0x{machine:04x}, expected 0x{expected:04x}"
+        )
+    print(f"PASS format: {binary.name} [{target} PE 0x{machine:04x}]")
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -736,6 +770,8 @@ def cross_build_suite(
                 app, windows=TARGET_PLATFORMS[target] == "windows"
             )
             build_app(source, app, binary, target=target, verbose=verbose)
+            if target in WINDOWS_MACHINE_TYPES:
+                verify_windows_binary(binary, target)
             binaries.append(binary)
             counts["build"] += 1
         write_artifact_manifest(

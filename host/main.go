@@ -10,15 +10,16 @@ import (
 	"unsafe"
 )
 
+// unsafeArgv is the C runtime's argv, passed untyped so the per-OS
+// processArgs implementations can decide whether to read it at all.
+type unsafeArgv = unsafe.Pointer
+
 //export go_platform_main
 func go_platform_main(argc C.int, argv **C.char) C.int {
-	count := int(argc)
-	args := make([]roc.RocStr, count)
-	if count > 0 {
-		cArgs := unsafe.Slice(argv, count)
-		for i, arg := range cArgs {
-			args[i] = roc.NewRocStr(C.GoString(arg))
-		}
+	strArgs := processArgs(int(argc), unsafeArgv(argv))
+	args := make([]roc.RocStr, len(strArgs))
+	for i, arg := range strArgs {
+		args[i] = roc.NewRocStr(arg)
 	}
 
 	rocArgs := roc.NewRocList(args)

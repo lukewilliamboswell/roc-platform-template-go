@@ -11,6 +11,33 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PLATFORM = ROOT / "platform"
+MINGW_INPUTS = (
+    "crt2.obj",
+    "libhost.a",
+    "libmingw32.lib",
+    "zigc.lib",
+    "compiler_rt.lib",
+    "api-ms-win-crt-conio-l1-1-0.lib",
+    "api-ms-win-crt-convert-l1-1-0.lib",
+    "api-ms-win-crt-environment-l1-1-0.lib",
+    "api-ms-win-crt-filesystem-l1-1-0.lib",
+    "api-ms-win-crt-heap-l1-1-0.lib",
+    "api-ms-win-crt-locale-l1-1-0.lib",
+    "api-ms-win-crt-math-l1-1-0.lib",
+    "api-ms-win-crt-multibyte-l1-1-0.lib",
+    "api-ms-win-crt-private-l1-1-0.lib",
+    "api-ms-win-crt-process-l1-1-0.lib",
+    "api-ms-win-crt-runtime-l1-1-0.lib",
+    "api-ms-win-crt-stdio-l1-1-0.lib",
+    "api-ms-win-crt-string-l1-1-0.lib",
+    "api-ms-win-crt-time-l1-1-0.lib",
+    "api-ms-win-crt-utility-l1-1-0.lib",
+    "advapi32.lib",
+    "kernel32.lib",
+    "ntdll.lib",
+    "shell32.lib",
+    "user32.lib",
+)
 TARGET_INPUTS = {
     "x64mac": ("libhost.a",),
     "arm64mac": ("libhost.a",),
@@ -18,6 +45,10 @@ TARGET_INPUTS = {
     "x64v1musl": ("crt1.o", "libhost.a", "libc.a", "libzigc.a", "libcompiler_rt.a"),
     "arm64musl": ("crt1.o", "libhost.a", "libc.a", "libzigc.a", "libcompiler_rt.a"),
     "arm64v1musl": ("crt1.o", "libhost.a", "libc.a", "libzigc.a", "libcompiler_rt.a"),
+    "x64mingw": MINGW_INPUTS,
+    "x64v1mingw": MINGW_INPUTS,
+    "arm64mingw": MINGW_INPUTS,
+    "arm64v1mingw": MINGW_INPUTS,
 }
 PLATFORM_SUPPORT_INPUTS = ("targets/macos-sysroot/usr/lib/libSystem.tbd",)
 

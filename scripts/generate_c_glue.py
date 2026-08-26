@@ -19,7 +19,7 @@ ROC_VERSION_FILE = ROOT / ".roc-version"
 PLATFORM_FILE = ROOT / "platform" / "main.roc"
 OUTPUT_FILE = ROOT / "host" / "roc" / "roc_platform_abi.h"
 PIN_PATTERN = re.compile(
-    r"nightly-\d{4}-[A-Za-z]+-\d{1,2}-(?P<revision>[0-9a-f]{7,40})"
+    r"nightly-\d{4}-(?:[A-Za-z]+|\d{2})-\d{1,2}-(?P<revision>[0-9a-f]{7,40})"
 )
 ROC_REVISION_PATTERN = re.compile(r"\b[0-9a-f]{7,40}\b")
 

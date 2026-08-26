@@ -1,6 +1,7 @@
 #include "roc/roc_std.h"
 
 extern int go_platform_main(int argc, char **argv);
+extern void roc_link_hosted_effects(void);
 
 /*
  * Hosted symbols are weak references in the Roc app object. Taking their
@@ -43,5 +44,6 @@ void __libc_start_init(void *main_fn, int argc, char **argv) {
 #endif
 
 int main(int argc, char **argv) {
+    roc_link_hosted_effects();
     return go_platform_main(argc, argv);
 }

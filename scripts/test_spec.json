@@ -55,21 +55,21 @@
         {
           "name": "rejects-non-numeric-limit",
           "args": ["many"],
-          "exit_code": 255,
+          "exit_code": 1,
           "stdout_equals": "",
           "stderr_equals": "ERROR: InvalidLimit(\"many\")\n"
         },
         {
           "name": "rejects-limit-below-range",
           "args": ["0"],
-          "exit_code": 255,
+          "exit_code": 1,
           "stdout_equals": "",
           "stderr_equals": "ERROR: LimitTooSmall(0)\n"
         },
         {
           "name": "rejects-limit-above-range",
           "args": ["101"],
-          "exit_code": 255,
+          "exit_code": 1,
           "stdout_equals": "",
           "stderr_equals": "ERROR: LimitTooLarge(101)\n"
         }
@@ -124,7 +124,7 @@
         {
           "name": "rejects-invalid-number",
           "args": ["10", "many", "5"],
-          "exit_code": 255,
+          "exit_code": 1,
           "stdout_equals": "",
           "stderr_equals": "ERROR: InvalidNumber(\"many\")\n"
         }
@@ -135,7 +135,7 @@
       "cases": [
         {
           "name": "renders-default-domain-error",
-          "exit_code": 255,
+          "exit_code": 1,
           "stdout_equals": "",
           "stderr_equals": "ERROR: ApplicationError(the operation failed)\n"
         },
@@ -148,7 +148,7 @@
         {
           "name": "renders-context-for-unknown-command",
           "args": ["maybe"],
-          "exit_code": 255,
+          "exit_code": 1,
           "stdout_equals": "",
           "stderr_equals": "ERROR: ApplicationError(unknown command \"maybe\"; expected \"success\" or \"failure\")\n"
         }

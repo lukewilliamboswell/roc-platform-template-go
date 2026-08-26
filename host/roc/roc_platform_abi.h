@@ -6,8 +6,12 @@
  *
  * Hosted argument ownership:
  * Roc transfers ownership of refcounted arguments to the hosted function.
- * The hosted function must decref owned refcounted arguments when done,
+ * The hosted function must release owned refcounted arguments when done,
  * or retain/transfer ownership explicitly when storing or returning them.
+ * Releasing a container releases its elements only when the container's own
+ * count reaches zero, which is what compiled Roc code does when it drops one
+ * it owns. Releasing the elements unconditionally double-frees them whenever
+ * the Roc caller still holds the container.
  */
 
 #ifndef ROC_PLATFORM_ABI_H
@@ -139,7 +143,7 @@ typedef void* RocBox;
 struct RocOps;
 
 /* `reuse` is nullable. Non-null must be the callable data pointer whose inline capture begins at `capture`; it transfers one owned reference to the callee. The caller must not use or decref that ownership unit after the call. The callee consumes it exactly once, whether or not the result can reuse the allocation. */
-typedef void (*RocErasedCallableFn)(struct RocOps* ops, uint8_t* ret, const uint8_t* args, uint8_t* capture, uint8_t* reuse);
+typedef void (*RocErasedCallableFn)(struct RocOps* ops, uint8_t* ret, const uint8_t* args, uint8_t* capture, uint8_t* reuse, const void** ret_desc);
 typedef void (*RocErasedCallableOnDrop)(uint8_t* capture, struct RocOps* ops);
 typedef struct {
     RocErasedCallableFn callable_fn_ptr;
