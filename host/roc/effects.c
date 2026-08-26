@@ -6,6 +6,9 @@
 extern void go_roc_stderr_line(HostStderrLineResult *result, RocStr message);
 extern void go_roc_stdout_line(HostStdoutLineResult *result, RocStr message);
 
+/* Called by startup.c so archive linkers must extract this translation unit. */
+void roc_link_hosted_effects(void) {}
+
 static RocStr roc_str_from_bytes(const uint8_t *bytes, size_t length) {
     RocStr result = {0};
     if (length < sizeof(RocStr)) {
