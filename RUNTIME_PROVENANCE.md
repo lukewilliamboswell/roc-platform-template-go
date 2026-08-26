@@ -8,6 +8,8 @@ without requiring the application user to install a C toolchain or SDK.
 
 - Toolchain: Zig 0.16.0
 - Upstream release: <https://ziglang.org/download/0.16.0/>
+- Linux release archive SHA-256:
+  `70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00`
 - libc: musl 1.2.5 plus the security fixes shipped by Zig 0.16.0
 - Windows runtime: mingw-w64 and Universal CRT import libraries shipped by Zig
 - Source targets: `x86_64-linux-musl`, `aarch64-linux-musl`,
