@@ -96,7 +96,9 @@ def run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]
     return subprocess.run(args, check=True, **kwargs)
 
 
-def locate_artifacts(trace: str, artifacts: tuple[str, ...]) -> dict[str, Path]:
+def locate_artifacts(
+    trace: str, artifacts: tuple[str, ...], base_dir: Path
+) -> dict[str, Path]:
     result: dict[str, Path] = {}
     for line in trace.splitlines():
         if not line.startswith(("ld.lld ", "lld-link ")):
@@ -105,7 +107,8 @@ def locate_artifacts(trace: str, artifacts: tuple[str, ...]) -> dict[str, Path]:
             normalized = token.replace("\\", "/")
             for artifact in artifacts:
                 if normalized.endswith(f"/{artifact}"):
-                    result[artifact] = Path(token)
+                    path = Path(token)
+                    result[artifact] = path if path.is_absolute() else base_dir / path
     return result
 
 
@@ -140,7 +143,11 @@ def normalize_archive(
 
 
 def build_musl_runtime(
-    roc_target: str, zig_target: str, work_dir: Path, generated_dir: Path
+    roc_target: str,
+    zig_target: str,
+    work_dir: Path,
+    generated_dir: Path,
+    zig_lib_dir: Path,
 ) -> None:
     target_work = work_dir / roc_target
     output_dir = generated_dir / roc_target
@@ -155,6 +162,7 @@ def build_musl_runtime(
         {
             "ZIG_GLOBAL_CACHE_DIR": str(global_cache),
             "ZIG_LOCAL_CACHE_DIR": str(local_cache),
+            "ZIG_LIB_DIR": str(zig_lib_dir),
         }
     )
     result = subprocess.run(
@@ -167,11 +175,13 @@ def build_musl_runtime(
             "-O2",
             "-g0",
             "-fno-sanitize=all",
+            "-s",
             "-v",
             str(PROBE),
             "-o",
             str(target_work / "probe"),
         ],
+        cwd=work_dir,
         env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
@@ -183,7 +193,7 @@ def build_musl_runtime(
     if result.returncode != 0:
         raise RuntimeError(f"zig cc failed for {roc_target}; trace: {trace_path}")
 
-    discovered = locate_artifacts(result.stderr, MUSL_ARTIFACTS)
+    discovered = locate_artifacts(result.stderr, MUSL_ARTIFACTS, work_dir)
     missing = [
         name for name in MUSL_ARTIFACTS if not discovered.get(name, Path()).is_file()
     ]
@@ -199,12 +209,17 @@ def build_musl_runtime(
         snapshots[name] = snapshot
     crt = output_dir / "crt1.o"
     shutil.copy2(snapshots["crt1.o"], crt)
+    canonicalize(crt, work_dir)
     for name in MUSL_ARTIFACTS[1:]:
         normalize_archive(snapshots[name], output_dir / name, work_dir)
 
 
 def build_mingw_runtime(
-    roc_target: str, zig_target: str, work_dir: Path, generated_dir: Path
+    roc_target: str,
+    zig_target: str,
+    work_dir: Path,
+    generated_dir: Path,
+    zig_lib_dir: Path,
 ) -> None:
     target_work = work_dir / roc_target
     output_dir = generated_dir / roc_target
@@ -219,6 +234,7 @@ def build_mingw_runtime(
         {
             "ZIG_GLOBAL_CACHE_DIR": str(global_cache),
             "ZIG_LOCAL_CACHE_DIR": str(local_cache),
+            "ZIG_LIB_DIR": str(zig_lib_dir),
         }
     )
     result = subprocess.run(
@@ -236,6 +252,7 @@ def build_mingw_runtime(
             "-o",
             str(target_work / "probe.exe"),
         ],
+        cwd=work_dir,
         env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
@@ -247,7 +264,7 @@ def build_mingw_runtime(
     if result.returncode != 0:
         raise RuntimeError(f"zig cc failed for {roc_target}; trace: {trace_path}")
 
-    discovered = locate_artifacts(result.stderr, MINGW_ARTIFACTS)
+    discovered = locate_artifacts(result.stderr, MINGW_ARTIFACTS, work_dir)
     missing = [
         name for name in MINGW_ARTIFACTS if not discovered.get(name, Path()).is_file()
     ]
@@ -340,8 +357,21 @@ def main() -> None:
     try:
         generated_dir = work_dir / "generated"
         generated_dir.mkdir()
-        build_musl_runtime("x64musl", "x86_64-linux-musl", work_dir, generated_dir)
-        build_musl_runtime("arm64musl", "aarch64-linux-musl", work_dir, generated_dir)
+        zig_environment = subprocess.check_output(["zig", "env"], text=True)
+        lib_dir_match = re.search(
+            r'^\s*\.lib_dir = "([^"]+)",$', zig_environment, re.MULTILINE
+        )
+        if lib_dir_match is None:
+            raise RuntimeError("zig env did not report lib_dir")
+        zig_lib_dir = work_dir / "zig-lib"
+        zig_lib_dir.symlink_to(Path(lib_dir_match.group(1)), target_is_directory=True)
+
+        build_musl_runtime(
+            "x64musl", "x86_64-linux-musl", work_dir, generated_dir, zig_lib_dir
+        )
+        build_musl_runtime(
+            "arm64musl", "aarch64-linux-musl", work_dir, generated_dir, zig_lib_dir
+        )
 
         for source, destination in (
             ("x64musl", "x64v1musl"),
@@ -350,10 +380,10 @@ def main() -> None:
             shutil.copytree(generated_dir / source, generated_dir / destination)
 
         build_mingw_runtime(
-            "x64mingw", "x86_64-windows-gnu", work_dir, generated_dir
+            "x64mingw", "x86_64-windows-gnu", work_dir, generated_dir, zig_lib_dir
         )
         build_mingw_runtime(
-            "arm64mingw", "aarch64-windows-gnu", work_dir, generated_dir
+            "arm64mingw", "aarch64-windows-gnu", work_dir, generated_dir, zig_lib_dir
         )
 
         for source, destination in (
@@ -362,12 +392,6 @@ def main() -> None:
         ):
             shutil.copytree(generated_dir / source, generated_dir / destination)
 
-        zig_environment = subprocess.check_output(["zig", "env"], text=True)
-        lib_dir_match = re.search(
-            r'^\s*\.lib_dir = "([^"]+)",$', zig_environment, re.MULTILINE
-        )
-        if lib_dir_match is None:
-            raise RuntimeError("zig env did not report lib_dir")
         darwin_source = (
             Path(lib_dir_match.group(1)) / "libc" / "darwin" / "libSystem.tbd"
         )
@@ -381,7 +405,7 @@ def main() -> None:
 
         actual_manifest = generated_manifest(generated_dir)
         expected_manifest = MANIFEST.read_text(encoding="utf-8")
-        if actual_manifest != expected_manifest:
+        if args.check and actual_manifest != expected_manifest:
             difference = "".join(
                 difflib.unified_diff(
                     expected_manifest.splitlines(keepends=True),
@@ -412,6 +436,7 @@ def main() -> None:
         else:
             darwin_destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(darwin_generated, darwin_destination)
+            MANIFEST.write_text(actual_manifest, encoding="utf-8")
         if args.check:
             print("Zig runtime artifacts are reproducible and match checked-in copies.")
         else:

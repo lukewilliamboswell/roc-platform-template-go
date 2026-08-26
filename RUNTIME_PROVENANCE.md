@@ -8,6 +8,9 @@ without requiring the application user to install a C toolchain or SDK.
 
 - Toolchain: Zig 0.16.0
 - Upstream release: <https://ziglang.org/download/0.16.0/>
+- Linux release archive SHA-256: x86-64
+  `70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00`;
+  ARM64 `ea4b09bfb22ec6f6c6ceac57ab63efb6b46e17ab08d21f69f3a48b38e1534f17`
 - libc: musl 1.2.5 plus the security fixes shipped by Zig 0.16.0
 - Windows runtime: mingw-w64 and Universal CRT import libraries shipped by Zig
 - Source targets: `x86_64-linux-musl`, `aarch64-linux-musl`,
@@ -71,10 +74,14 @@ validates the central manifest, then links and executes the checked-in artifacts
 through freshly built platform bundles; it does not regenerate toolchain runtime
 libraries.
 
-Zig's archive members contain randomized cache paths. The vendoring script
-uses a fixed-length temporary path, extracts members in their original order,
-gives them stable indexed names, and replaces only that equal-length cache-root
-string with a canonical spelling. MinGW objects are built with stripped output;
+Zig's musl objects contain both randomized cache paths and the active Zig
+library path. The vendoring script exposes the Zig library through the same
+fixed-length temporary root, canonicalizes standalone objects, extracts archive
+members in their original order, gives them stable indexed names, and replaces
+that equal-length temporary root with a canonical spelling. Zig also runs from
+that root so DWARF compilation directories do not contain the repository path.
+Musl inputs are built with stripped output so nondeterministic DWARF string-table
+ordering is excluded. MinGW objects are also built with stripped output;
 their residual CodeView payloads are cleared and marked for linker removal
 without changing section layout, code, symbols, or relocations. Go host archives
 are built with symbol and DWARF stripping enabled, and Windows archives are
