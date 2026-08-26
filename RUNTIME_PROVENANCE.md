@@ -73,10 +73,12 @@ validates the central manifest, then links and executes the checked-in artifacts
 through freshly built platform bundles; it does not regenerate toolchain runtime
 libraries.
 
-Zig's archive members contain randomized cache paths. The vendoring script
-uses a fixed-length temporary path, extracts members in their original order,
-gives them stable indexed names, and replaces only that equal-length cache-root
-string with a canonical spelling. MinGW objects are built with stripped output;
+Zig's musl objects contain both randomized cache paths and the active Zig
+library path. The vendoring script exposes the Zig library through the same
+fixed-length temporary root, canonicalizes standalone objects, extracts archive
+members in their original order, gives them stable indexed names, and replaces
+that equal-length temporary root with a canonical spelling. MinGW objects are
+built with stripped output;
 their residual CodeView payloads are cleared and marked for linker removal
 without changing section layout, code, symbols, or relocations. Go host archives
 are built with symbol and DWARF stripping enabled, and Windows archives are
