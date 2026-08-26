@@ -25,36 +25,39 @@ func toCRocStr(value RocStr) C.RocStr {
 	return *(*C.RocStr)(unsafe.Pointer(&value))
 }
 
-//export roc_stderr_line
-func roc_stderr_line(message C.RocStr) C.HostStderrLineResult {
+//export go_roc_stderr_line
+func go_roc_stderr_line(result *C.HostStderrLineResult, message C.RocStr) {
 	owned := fromCRocStr(message)
 	defer owned.DecRef()
 
 	if _, err := fmt.Fprintln(os.Stderr, owned.String()); err != nil {
-		return C.HostStderrLineResult_make_err(toCRocStr(NewRocStr(err.Error())))
+		*result = C.HostStderrLineResult_make_err(toCRocStr(NewRocStr(err.Error())))
+		return
 	}
-	return C.HostStderrLineResult_make_ok()
+	*result = C.HostStderrLineResult_make_ok()
 }
 
-//export roc_stdin_line
-func roc_stdin_line() C.HostStdinLineResult {
+//export go_roc_stdin_line
+func go_roc_stdin_line(result *C.HostStdinLineResult) {
 	line, err := stdin.ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
-		return C.HostStdinLineResult_make_err(toCRocStr(NewRocStr(err.Error())))
+		*result = C.HostStdinLineResult_make_err(toCRocStr(NewRocStr(err.Error())))
+		return
 	}
 
 	line = strings.TrimSuffix(line, "\n")
 	line = strings.TrimSuffix(line, "\r")
-	return C.HostStdinLineResult_make_ok(toCRocStr(NewRocStr(line)))
+	*result = C.HostStdinLineResult_make_ok(toCRocStr(NewRocStr(line)))
 }
 
-//export roc_stdout_line
-func roc_stdout_line(message C.RocStr) C.HostStdoutLineResult {
+//export go_roc_stdout_line
+func go_roc_stdout_line(result *C.HostStdoutLineResult, message C.RocStr) {
 	owned := fromCRocStr(message)
 	defer owned.DecRef()
 
 	if _, err := fmt.Fprintln(os.Stdout, owned.String()); err != nil {
-		return C.HostStdoutLineResult_make_err(toCRocStr(NewRocStr(err.Error())))
+		*result = C.HostStdoutLineResult_make_err(toCRocStr(NewRocStr(err.Error())))
+		return
 	}
-	return C.HostStdoutLineResult_make_ok()
+	*result = C.HostStdoutLineResult_make_ok()
 }
