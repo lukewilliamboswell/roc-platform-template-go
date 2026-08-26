@@ -69,6 +69,32 @@ def native_target() -> str:
     raise SystemExit(f"Unsupported host platform: {system} {machine}")
 
 
+def rebuild_coff_archive_index(archive: Path, work_dir: Path) -> None:
+    members_dir = work_dir / "coff-members"
+    members_dir.mkdir()
+    members = subprocess.check_output(
+        ["zig", "ar", "t", str(archive)], text=True
+    ).splitlines()
+    stable_members: list[str] = []
+    for index, member in enumerate(members):
+        stable_name = f"{index:04d}-{Path(member).name}"
+        with (members_dir / stable_name).open("wb") as stream:
+            subprocess.run(
+                ["zig", "ar", "pP", str(archive), member],
+                stdout=stream,
+                check=True,
+            )
+        stable_members.append(stable_name)
+
+    rebuilt = work_dir / "reindexed-libhost.a"
+    subprocess.run(
+        ["zig", "ar", "rcsD", str(rebuilt), *stable_members],
+        cwd=members_dir,
+        check=True,
+    )
+    shutil.move(rebuilt, archive)
+
+
 def build_target(name: str) -> None:
     target = TARGETS[name]
     cflags = "-O2 -g0"
@@ -112,9 +138,11 @@ def build_target(name: str) -> None:
             check=True,
         )
         if target.goos == "windows":
-            # Go's ARM64 c-archive omits the COFF archive symbol index that
-            # lld-link needs in order to pull the exported host callbacks.
-            subprocess.run(["zig", "ar", "s", str(temporary_output)], check=True)
+            # Go's COFF archive index is producer-dependent, and lld-link
+            # cannot discover its symbols in archives emitted on macOS.
+            # Rebuilding the archive gives every producer the same LLVM COFF
+            # index and also fixes Go's missing ARM64 archive index.
+            rebuild_coff_archive_index(temporary_output, Path(temporary))
         destination = ROOT / "platform" / "targets" / name / target.filename
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(temporary_output, destination)
