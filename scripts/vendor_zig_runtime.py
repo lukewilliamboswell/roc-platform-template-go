@@ -96,7 +96,9 @@ def run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]
     return subprocess.run(args, check=True, **kwargs)
 
 
-def locate_artifacts(trace: str, artifacts: tuple[str, ...]) -> dict[str, Path]:
+def locate_artifacts(
+    trace: str, artifacts: tuple[str, ...], base_dir: Path
+) -> dict[str, Path]:
     result: dict[str, Path] = {}
     for line in trace.splitlines():
         if not line.startswith(("ld.lld ", "lld-link ")):
@@ -105,7 +107,8 @@ def locate_artifacts(trace: str, artifacts: tuple[str, ...]) -> dict[str, Path]:
             normalized = token.replace("\\", "/")
             for artifact in artifacts:
                 if normalized.endswith(f"/{artifact}"):
-                    result[artifact] = Path(token)
+                    path = Path(token)
+                    result[artifact] = path if path.is_absolute() else base_dir / path
     return result
 
 
@@ -172,11 +175,13 @@ def build_musl_runtime(
             "-O2",
             "-g0",
             "-fno-sanitize=all",
+            "-s",
             "-v",
             str(PROBE),
             "-o",
             str(target_work / "probe"),
         ],
+        cwd=work_dir,
         env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
@@ -188,7 +193,7 @@ def build_musl_runtime(
     if result.returncode != 0:
         raise RuntimeError(f"zig cc failed for {roc_target}; trace: {trace_path}")
 
-    discovered = locate_artifacts(result.stderr, MUSL_ARTIFACTS)
+    discovered = locate_artifacts(result.stderr, MUSL_ARTIFACTS, work_dir)
     missing = [
         name for name in MUSL_ARTIFACTS if not discovered.get(name, Path()).is_file()
     ]
@@ -247,6 +252,7 @@ def build_mingw_runtime(
             "-o",
             str(target_work / "probe.exe"),
         ],
+        cwd=work_dir,
         env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
@@ -258,7 +264,7 @@ def build_mingw_runtime(
     if result.returncode != 0:
         raise RuntimeError(f"zig cc failed for {roc_target}; trace: {trace_path}")
 
-    discovered = locate_artifacts(result.stderr, MINGW_ARTIFACTS)
+    discovered = locate_artifacts(result.stderr, MINGW_ARTIFACTS, work_dir)
     missing = [
         name for name in MINGW_ARTIFACTS if not discovered.get(name, Path()).is_file()
     ]

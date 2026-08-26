@@ -77,8 +77,10 @@ Zig's musl objects contain both randomized cache paths and the active Zig
 library path. The vendoring script exposes the Zig library through the same
 fixed-length temporary root, canonicalizes standalone objects, extracts archive
 members in their original order, gives them stable indexed names, and replaces
-that equal-length temporary root with a canonical spelling. MinGW objects are
-built with stripped output;
+that equal-length temporary root with a canonical spelling. Zig also runs from
+that root so DWARF compilation directories do not contain the repository path.
+Musl inputs are built with stripped output so nondeterministic DWARF string-table
+ordering is excluded. MinGW objects are also built with stripped output;
 their residual CodeView payloads are cleared and marked for linker removal
 without changing section layout, code, symbols, or relocations. Go host archives
 are built with symbol and DWARF stripping enabled, and Windows archives are
