@@ -87,7 +87,7 @@ expect process arguments in their runtime constructor, while musl normally
 invokes init-array entries without forwarding them. Changes here require a
 native executable test, not only an archive build.
 
-## Vendored runtimes
+## Runtime dependencies
 
 Runtime dependencies are released separately from Go hosts and platform packages.
 Follow [RUNTIME_PROVENANCE.md](RUNTIME_PROVENANCE.md) to review trusted source
