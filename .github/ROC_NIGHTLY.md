@@ -8,7 +8,8 @@ reviewed change. `.roc-version` has been removed.
 Both reusable workflows are pinned to
 `b60d561cbd53c911b29238b30624827f8487113a`. The shared workflow pins its nested
 nightly action to `ce402b2786852d7061dd6c91a6a118e886521e3c`.
-Automatic merging is explicitly disabled. The caller grants `statuses: write`
+Automatic merging is enabled for verified bot compiler-pin updates after all
+configured validation workflows pass on the current main base. The caller grants `statuses: write`
 as required by the shared workflow's permission ceiling; individual jobs narrow
 permissions. Candidate CI has read-only repository permissions and cannot release
 or deploy. Dependabot proposes reviewed workflow updates.
@@ -31,7 +32,8 @@ separate branch. Do not weaken tests or rewrite release URLs to accept a nightly
   on 2026-09-08 and read back successfully; default permissions remain read-only.
 - `main` now requires PRs and the strict GitHub Actions `CI result` check, with
   zero additional reviewer approvals, no bypass actors, and force-push/deletion
-  protections. Automatic nightly merging remains disabled.
+  protections. The controller merges only after fresh validation and enforces these
+  protections through the normal GitHub merge API.
 - No platform release exists. Current-source CI tests fresh bundles. Follow the
   [first-release checklist](../CONTRIBUTING.md#release-checklist) to establish
   immutable public URLs, starters, and a separate published-download lane.
@@ -42,10 +44,14 @@ separate branch. Do not weaken tests or rewrite release URLs to accept a nightly
   and updater completed successfully against that exact head. The stale reserved branch
   from the failed legacy updater contained only a `.roc-version` change and was
   reset to the migrated base after preserving its commit locally.
-- Manual mode does not mirror required status checks. GitHub held the ordinary
+- During the initial manual-mode rollout, GitHub held the ordinary
   bot PR workflows for approval; these were approved after inspecting the pin-only
   diff. The bootstrap PR merged through the required `CI result` rule without a
-  bypass. Compiler promotion remains a separate manual review.
+  bypass. Automatic mode mirrors successful dispatched validation jobs into the
+  required status contexts and merges only a verified pin-only bot commit directly
+  on the tested main base. If main or the candidate moves, rerun the updater to
+  refresh and revalidate it. Source and runtime dependency changes still require
+  separate reviewed PRs.
 
 ## Local migration validation (2026-09-08)
 
