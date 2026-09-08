@@ -4,7 +4,7 @@ platform ""
 		main! : List(Str) => Try({}, [Exit(I32), ..])
 	}
 	exposes [Stdout, Stderr, Stdin]
-	packages { roc: "nightly-2026-09-07-14d9829" }
+	packages { roc: "nightly-2026-09-08-39a3f89" }
 	provides { "roc_main": main_for_host! }
 	hosted {
 		"roc_stderr_line": Host.stderr_line!,
