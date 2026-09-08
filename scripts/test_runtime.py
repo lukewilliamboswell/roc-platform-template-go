@@ -111,6 +111,20 @@ class RuntimeTests(unittest.TestCase):
                 fetch.verify_release(self.archive.parent, self.lock)
             verify.assert_not_called()
 
+    def test_fetch_does_not_install_after_authentication_failure(self):
+        cache = self.root / '.runtime-cache' / self.lock['sha256']
+        cache.mkdir(parents=True)
+        for name in [self.archive.name, 'runtime.spdx.json', 'provenance.sigstore.json', 'sbom.sigstore.json']:
+            source = self.archive.parent / name
+            (cache / name).write_bytes(source.read_bytes() if source.exists() else b'invalid proof')
+        with patch.object(fetch, 'ROOT', self.root), \
+             patch.object(fetch, 'load_lock', return_value=self.lock), \
+             patch.object(fetch, 'verify_attestation', side_effect=ValueError('invalid proof')), \
+             patch.object(fetch, 'install') as install:
+            with self.assertRaisesRegex(ValueError, 'invalid proof'):
+                fetch.fetch()
+            install.assert_not_called()
+
     def test_install_preserves_host_and_rejects_symlink_parents(self):
         platform = self.root / 'platform'
         host = platform / 'targets/x64musl/libhost.a'

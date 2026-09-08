@@ -13,6 +13,7 @@ target-specific artifact, such as Linux runtime vendoring.
 ## Before opening a change
 
 ```console
+python scripts/fetch_runtime.py
 python scripts/build.py --all
 go -C host test ./...
 python scripts/check_roc_format.py
@@ -79,7 +80,7 @@ Runtime dependencies are released separately from Go hosts and platform packages
 Follow [RUNTIME_PROVENANCE.md](RUNTIME_PROVENANCE.md) to review trusted source
 changes, publish a new runtime version, and update the consumer lock. Routine CI
 consumes the selected release; nightly pin updates do not regenerate runtimes.
-Use `python scripts/fetch_runtime.py` after the initial release migration.
+Use `python scripts/fetch_runtime.py` before building platform bundles.
 Keep license notices and source/SBOM inventory accurate. Never commit generated
 runtime or host binaries or overwrite an existing release.
 
@@ -108,7 +109,7 @@ both Windows architectures even when only x86-64 can be run natively in CI.
 
 ## Release checklist
 
-`main` is the development branch. No release or stable compiler support line has
+`main` is the development branch. No platform release or stable compiler support line has
 been published. Package versions are independent of compiler versions. Start with
 an explicitly documented exact-nightly bootstrap release; create a compiler
 compatibility branch only when a second support line is needed. Release preparation,
@@ -142,6 +143,6 @@ publication, backports, and URL follow-ups remain manual.
    follow-up PR SHA and required checks before merging; sign its commit if branch
    policy requires it. This repository has no automated release follow-up.
 
-The published lane cannot provide evidence until the first release exists; the
+The published lane cannot provide evidence until the first platform release exists; the
 current CI validates source bundles only. Keep this limitation visible during
 bootstrap instead of treating source tests as proof of download compatibility.

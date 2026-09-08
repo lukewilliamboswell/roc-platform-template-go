@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import re
 import subprocess
 from pathlib import Path
@@ -55,13 +54,8 @@ PLATFORM_SUPPORT_INPUTS = ("targets/macos-sysroot/usr/lib/libSystem.tbd",)
 
 
 def bundle_inputs() -> list[Path]:
-    from fetch_runtime import LOCK, verify_installed
-    if LOCK.exists() or os.environ.get("RUNTIME_CANDIDATE_SHA256"):
-        verify_installed()
-    else:
-        # Bootstrap only; removed once the first runtime release is published.
-        from vendor_zig_runtime import verify_checked_in_hashes
-        verify_checked_in_hashes()
+    from fetch_runtime import verify_installed
+    verify_installed()
     inputs = sorted(PLATFORM.glob("*.roc"))
     inputs.extend(sorted(path for path in (PLATFORM / "runtime").rglob("*")
                          if path.is_file() and path.name != "receipt.json"))
@@ -80,7 +74,7 @@ def bundle_inputs() -> list[Path]:
     if missing:
         formatted = "\n".join(f"  - {path.relative_to(ROOT)}" for path in missing)
         raise RuntimeError(
-            "Platform bundle inputs are missing. Run scripts/build.py --all first:\n"
+            "Platform bundle inputs are missing. Fetch runtimes and run scripts/build.py --all first:\n"
             f"{formatted}"
         )
     return inputs

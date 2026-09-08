@@ -39,7 +39,7 @@ def compare(left, right):
     archive = left / archive_name(lock["version"])
     manifest, _ = read_archive(archive)
     if lock["version"] == "0.1.0":
-        for line in (ROOT / "scripts/zig_runtime.sha256").read_text().splitlines():
+        for line in (ROOT / "scripts/runtime_bootstrap.sha256").read_text().splitlines():
             digest, path = line.split("  ", 1)
             if manifest["files"][f"targets/{path}"] != digest:
                 raise ValueError(f"Bootstrap runtime differs from original baseline: {path}")
