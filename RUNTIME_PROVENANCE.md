@@ -1,94 +1,109 @@
-# Vendored runtime provenance
+# Runtime dependency releases
 
-The Linux and Windows platform targets intentionally check in their C startup,
-runtime, and system-import archives. This lets Roc link standalone executables
-without requiring the application user to install a C toolchain or SDK.
+Third-party runtime and linker inputs have an independent release lifecycle in
+this repository. They are distinct from the Go host (`libhost.a`), which is built
+from current platform source for every platform update.
 
-## Source
+## Trusted sources and archive contents
 
-- Toolchain: Zig 0.16.0
-- Upstream release: <https://ziglang.org/download/0.16.0/>
-- Linux release archive SHA-256: x86-64
-  `70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00`;
-  ARM64 `ea4b09bfb22ec6f6c6ceac57ab63efb6b46e17ab08d21f69f3a48b38e1534f17`
-- libc: musl 1.2.5 plus the security fixes shipped by Zig 0.16.0
-- Windows runtime: mingw-w64 and Universal CRT import libraries shipped by Zig
-- Source targets: `x86_64-linux-musl`, `aarch64-linux-musl`,
-  `x86_64-windows-gnu`, and `aarch64-windows-gnu`
-- Roc targets: `x64musl`, `x64v1musl`, `arm64musl`, `arm64v1musl`,
-  `x64mingw`, `x64v1mingw`, `arm64mingw`, and `arm64v1mingw`
-- macOS interface stub: Zig's `lib/libc/darwin/libSystem.tbd`
+`scripts/runtime_sources.json` records the official Zig distribution URL and
+SHA-256, bundled component versions and source paths, patch context, and notices.
+The producer downloads and verifies that distribution before compiling. Source
+and license declarations are checked against its contents. The distribution
+includes patched musl, mingw-w64, Zig libc/compiler runtime, and Darwin interface
+metadata; it is the source authority rather than pristine upstream components.
 
-Zig 0.16.0 builds its static musl environment from both musl source and Zig
-libc source, so all four emitted inputs are kept explicit rather than merging
-them into an opaque archive:
+The archive preserves `targets/` paths for Linux musl and Windows MinGW, including
+baseline variants, and the Darwin `libSystem.tbd` text stub. It contains no Go
+host or Windows/Apple runtime DLL implementation. `runtime/` contains the source
+inventory, license notices, and an exhaustive per-file SHA-256 manifest.
 
-- `crt1.o`
-- `libc.a`
-- `libzigc.a`
-- `libcompiler_rt.a`
+Tar members are sorted regular files with fixed ownership, modes, and timestamps;
+gzip has a fixed timestamp and no embedded filename. The existing object/archive
+normalization makes independent builds byte-identical. The archive and generated
+SPDX 2.3 SBOM must match across two clean GitHub-hosted builders.
 
-The Go-specific musl constructor adapter is not patched into these artifacts.
-It is the reviewed source in `host/startup.c` and is built into `libhost.a`.
+## Publish an independent runtime version
 
-The MinGW targets carry Zig's `crt2.obj`, `libmingw32.lib`, `zigc.lib`,
-`compiler_rt.lib`, and the exact UCRT/Windows import libraries from Zig's
-link recipe. Import libraries contain symbol metadata for Windows system DLLs;
-the DLL implementations remain part of Windows and are not redistributed.
+Merge reviewed recipe changes to `main`, then dispatch **Release runtime
+dependencies** with a new numeric version, for example `0.1.0`. The workflow
+captures the dispatch commit and accepts no alternative source ref. It:
 
-The Darwin text-based interface stub is checked in at
-`platform/targets/macos-sysroot/usr/lib/libSystem.tbd`. Roc automatically uses
-that platform-provided sysroot when cross-linking macOS applications. It
-contains symbol/interface metadata only; the actual libSystem runtime remains
-part of macOS. Including the stub is what lets Linux and Windows CI producers
-link the macOS targets without an Apple SDK installation.
+1. Checks that neither the runtime tag nor release already exists.
+2. Builds twice using isolated caches and the checksum-pinned Zig distribution.
+3. Compares archives and metadata byte-for-byte. The first `0.1.0` release must
+   match the original `scripts/zig_runtime.sha256` binary baseline.
+4. Runs the full existing cross-builder and native application validation matrix
+   with the candidate archive. These jobs have read-only permissions.
+5. In a separate job that executes no build scripts, creates SLSA provenance for
+   the archive and SBOM and an SBOM attestation bound to the archive digest.
+6. Verifies the signed assets, creates a draft `runtime-vX.Y.Z` release targeting
+   the tested commit, uploads and reads back all assets, then publishes it. Runtime
+   releases are never designated the latest platform release.
 
-## Reproduce and verify
+The release contains the tarball, `runtime.spdx.json`, `SHA256SUMS`,
+`provenance.sigstore.json`, `sbom.sigstore.json`, and a proposed consumer lock
+named `runtime-release.json`. Published releases must be immutable.
 
-With exactly Zig 0.16.0 on `PATH`:
+Routine nightly and pull-request CI cannot publish or attest runtime releases.
+
+## Consume and verify
+
+After the initial release is published, a reviewed follow-up installs its proposed
+lock as `scripts/runtime_release.json`, switches CI to the download, and removes
+tracked runtime files. History is preserved. During this bootstrap only, CI still
+supports the checked-in baseline.
+
+The normal contributor sequence after that migration is:
 
 ```console
-# Rebuild in isolated Zig caches, verify pinned hashes, and replace artifacts
-python scripts/vendor_zig_runtime.py
-
-# Rebuild in isolated caches and byte-compare with the checked-in artifacts
-python scripts/vendor_zig_runtime.py --check
-
-# Verify every checked-in artifact against the central checksum manifest
-python scripts/vendor_zig_runtime.py --verify-hashes
+python scripts/fetch_runtime.py
+python scripts/build.py --all
+python scripts/test.py --operation all
+python scripts/bundle.py --output-dir dist
 ```
 
-`scripts/zig_runtime.sha256` pins every emitted file, including the Darwin
-interface stub. CI runs the fast hash verification and fails for a missing,
-changed, unlisted, or incorrectly recorded runtime artifact. A Zig upgrade is
-an explicit review: update the version in the script, inspect upstream runtime
-and license changes, regenerate the files, then update the manifest.
+The fetcher needs Python 3.11+ and a GitHub CLI supporting `gh attestation verify`
+with signer/source digest constraints. CI uses its read-only GitHub token.
+It downloads immutable versioned assets and checks the locked archive digest,
+provenance, SBOM, repository, workflow, source commit, signer commit, main ref,
+and GitHub-hosted runner identity before extraction. The published SBOM must
+match its signed predicate and every archive file checksum.
 
-After relevant changes land on `main`, the dedicated provenance workflow
-reproduces the artifacts and creates a signed SLSA build-provenance attestation.
-See [`SLSA_PROVENANCE.md`](SLSA_PROVENANCE.md) for the trust model and consumer
-verification command.
+Only the declared regular-file inventory may be installed. Traversal, links,
+duplicate entries, missing files, and unexpected paths fail validation. The
+installation preserves separately generated host archives. Cached assets live
+under `.runtime-cache/<sha256>`; every fetch reauthenticates them, and bundle
+assembly compares installed files and metadata with the digest-pinned archive.
+A verification failure never falls back to unverified bytes.
 
-The maintainer-only reproduction is intentionally not part of normal CI. CI
-validates the central manifest, then links and executes the checked-in artifacts
-through freshly built platform bundles; it does not regenerate toolchain runtime
-libraries.
+`--candidate ARCHIVE --sha256 DIGEST` is an explicit unsigned installation path
+for read-only producer validation. Those jobs supply `RUNTIME_CANDIDATE_SHA256`.
+It is not an input exposed by nightly dispatch and is never a publication path.
 
-Zig's musl objects contain both randomized cache paths and the active Zig
-library path. The vendoring script exposes the Zig library through the same
-fixed-length temporary root, canonicalizes standalone objects, extracts archive
-members in their original order, gives them stable indexed names, and replaces
-that equal-length temporary root with a canonical spelling. Zig also runs from
-that root so DWARF compilation directories do not contain the repository path.
-Musl inputs are built with stripped output so nondeterministic DWARF string-table
-ordering is excluded. MinGW objects are also built with stripped output;
-their residual CodeView payloads are cleared and marked for linker removal
-without changing section layout, code, symbols, or relocations. Go host archives
-are built with symbol and DWARF stripping enabled, and Windows archives are
-re-indexed with Zig for consistent COFF linker lookup. Independent clean builds
-are therefore byte-identical without embedding a maintainer or checkout path.
+## Local reproduction
 
-The `v1` target copies are byte-identical to their architecture's base musl or
-MinGW target. Roc's `v1` distinction applies to application CPU features,
-while these C ABI/runtime inputs are already built for the architecture
-baseline.
+With the source manifest's exact Zig version on PATH:
+
+```console
+python scripts/vendor_zig_runtime.py --output-dir ci-output/runtime-targets
+python scripts/package_runtime.py --targets-dir ci-output/runtime-targets --output-dir ci-output/runtime-dist --version 0.1.0
+```
+
+These commands write build artifacts, not tracked source. Local archives have no
+CI attestation and must not be substituted for a published dependency.
+
+## Recovery and upgrades
+
+Publication rejects reused versions rather than replacing assets or tags. If a
+run stops after creating a draft, retain the run's `runtime-signed` artifact and
+inspect the draft, tag commit, signatures, and uploaded hashes. Recovery is manual:
+only upload missing assets from that original signed artifact, require existing
+assets to match byte-for-byte, verify all downloads, then publish the draft. Never
+rebuild against a newer main commit, overwrite assets, move a tag, or delete a
+published release. If the exact signed artifact cannot be recovered, leave the
+partial version unused and select a new version.
+
+A runtime upgrade is a reviewed lock change independent of nightly pins. Include
+source/license and SBOM differences, exact release digest, and cross-platform CI
+evidence. Publication alone does not promote the dependency into platform builds.

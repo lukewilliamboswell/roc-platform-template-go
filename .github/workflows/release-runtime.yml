@@ -1,0 +1,157 @@
+name: Release runtime dependencies
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "New independent runtime version (X.Y.Z)"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-runtime
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.prepare.outputs.version }}
+      archive: ${{ steps.prepare.outputs.archive }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: python3 scripts/runtime_release.py prepare --version "$RELEASE_VERSION"
+
+  build:
+    needs: prepare
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [a, b]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.13"
+      - name: Install checksum-pinned Zig and verify source notices
+        run: python scripts/install_runtime_zig.py
+      - name: Build from bundled trusted sources in isolated caches
+        run: python scripts/vendor_zig_runtime.py --output-dir ci-output/runtime-targets
+      - name: Package archive and source/file SBOM
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: python scripts/package_runtime.py --targets-dir ci-output/runtime-targets --output-dir ci-output/runtime-dist --version "$RELEASE_VERSION"
+      - name: Ensure builds did not modify source
+        run: git diff --exit-code
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime-${{ matrix.replica }}
+          path: ci-output/runtime-dist
+          if-no-files-found: error
+          retention-days: 30
+
+  reproduce:
+    needs: build
+    runs-on: ubuntu-22.04
+    outputs:
+      sha256: ${{ steps.compare.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.13"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: runtime-*
+          path: replicas
+      - id: compare
+        run: python scripts/runtime_release.py compare --left replicas/runtime-a --right replicas/runtime-b
+
+  validate:
+    needs: reproduce
+    uses: ./.github/workflows/ci.yml
+    with:
+      runtime_candidate_artifact: runtime-a
+      runtime_candidate_sha256: ${{ needs.reproduce.outputs.sha256 }}
+
+  attest:
+    needs: [prepare, reproduce, validate]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      # This job executes no build scripts and checks out no consumer code.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: runtime-a
+          path: runtime-dist
+      - name: Confirm validated archive identity
+        env:
+          ARCHIVE: ${{ needs.prepare.outputs.archive }}
+          EXPECTED_SHA256: ${{ needs.reproduce.outputs.sha256 }}
+        run: |
+          echo "$EXPECTED_SHA256  runtime-dist/$ARCHIVE" | sha256sum --check --strict
+      - name: Attest build provenance for archive and SBOM
+        id: provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-checksums: runtime-dist/SHA256SUMS
+      - name: Attest SBOM for the validated archive
+        id: sbom
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: runtime-dist/${{ needs.prepare.outputs.archive }}
+          sbom-path: runtime-dist/runtime.spdx.json
+      - name: Preserve downloadable verification bundles
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+          SBOM_BUNDLE: ${{ steps.sbom.outputs.bundle-path }}
+        run: |
+          cp "$PROVENANCE_BUNDLE" runtime-dist/provenance.sigstore.json
+          cp "$SBOM_BUNDLE" runtime-dist/sbom.sigstore.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime-signed
+          path: runtime-dist
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    needs: attest
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.13"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: runtime-signed
+          path: runtime-dist
+      - name: Verify attestations, publish exact assets, and confirm immutability
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/runtime_release.py publish --directory runtime-dist

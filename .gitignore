@@ -14,3 +14,6 @@ platform/targets/*/libhost.a
 platform/targets/*/libhost.h
 platform/targets/*/host.lib
 platform/targets/*/host.h
+
+/.runtime-cache/
+/platform/runtime/

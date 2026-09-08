@@ -21,6 +21,8 @@ import urllib.parse
 from pathlib import Path, PurePosixPath
 
 from bundle import bundle_platform
+from compiler_pins import read_pin
+from generate_c_glue import require_pinned_roc
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -130,17 +132,15 @@ def rewrite_examples_for_bundle(examples_dir: Path, bundle_url: str):
     pattern = re.compile(r'\bplatform\s+"[^"]+"')
     with tempfile.TemporaryDirectory(prefix="platform-go-bundled-examples-") as temporary:
         output_dir = Path(temporary) / "examples"
-        for source in sorted(examples_dir.rglob("*.roc")):
-            relative = source.relative_to(examples_dir)
-            destination = output_dir / relative
-            destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(examples_dir, output_dir)
+        for source in sorted(output_dir.rglob("main.roc")):
             contents = source.read_text(encoding="utf-8")
             rewritten, count = pattern.subn(
                 f'platform "{bundle_url}"', contents, count=1
             )
             if count != 1:
                 raise TestFailure(f"Expected one platform dependency in {source}")
-            destination.write_text(rewritten, encoding="utf-8")
+            source.write_text(rewritten, encoding="utf-8")
         yield output_dir
 
 
@@ -323,7 +323,7 @@ def load_spec(examples_dir: Path) -> tuple[dict[str, bool], list[dict[str, objec
 
     discovered = {
         (Path("examples") / path.relative_to(examples_dir)).as_posix()
-        for path in examples_dir.rglob("*.roc")
+        for path in examples_dir.rglob("main.roc")
     }
     specified = set(paths)
     if discovered != specified:
@@ -668,6 +668,8 @@ def write_artifact_manifest(
         "format": 1,
         "target": target,
         "platform_bundle_sha256": platform_bundle_sha256,
+        "runtime_archive_sha256": json.loads((ROOT / "platform/runtime/receipt.json").read_text())["sha256"]
+        if (ROOT / "platform/runtime/receipt.json").exists() else None,
         "roc_version": subprocess.check_output(
             ["roc", "version"], text=True
         ).strip(),
@@ -917,11 +919,20 @@ def main() -> None:
         type=Path,
         help="retain the fresh bundle here instead of a temporary directory",
     )
+    inputs = parser.add_mutually_exclusive_group()
+    inputs.add_argument("--bundle", type=Path, help="validate this exact release candidate archive without rebuilding")
+    inputs.add_argument("--published", action="store_true", help="test committed release URLs without rewriting examples")
     parser.add_argument("--binaries-dir", type=Path)
     parser.add_argument("--label", default="local artifact")
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args()
 
+    if args.published and args.operation not in {"all", "validate", "build", "run"}:
+        raise TestFailure("--published requires all, validate, build, or run")
+    if args.operation == "run-prebuilt" and args.bundle:
+        raise TestFailure("--bundle cannot be used with run-prebuilt")
+    if args.bundle and args.bundle_output_dir:
+        raise TestFailure("--bundle cannot be used with --bundle-output-dir")
     if args.operation != "run-prebuilt" and shutil.which("roc") is None:
         raise TestFailure("'roc' was not found on PATH")
     examples_dir = args.examples_dir
@@ -935,7 +946,31 @@ def main() -> None:
         version = subprocess.check_output(["roc", "version"], text=True).strip()
         print(f"Using {version}")
 
-    if args.operation == "run-prebuilt":
+    if args.published:
+        _, apps = load_spec(examples_dir)
+        for app in apps:
+            source = source_path(app, examples_dir)
+            pin = read_pin(source)
+            if not pin or not pin.startswith("nightly-"):
+                raise TestFailure(f"{source}: an exact nightly header pin is required")
+            require_pinned_roc(pin.rsplit("-", 1)[1])
+            contents = source.read_text(encoding="utf-8")
+            if re.search(r'\bplatform\s+"https://github\.com/[^/]+/[^/]+/releases/download/[^/]+/[^"/]+\.tar\.zst"', contents) is None:
+                raise TestFailure(f"{source}: published validation requires an immutable release URL")
+        with tempfile.TemporaryDirectory(prefix="platform-go-published-cache-") as cache:
+            variables = ("ROC_CACHE_DIR", "XDG_CACHE_HOME")
+            previous = {key: os.environ.get(key) for key in variables}
+            try:
+                for key in variables:
+                    os.environ[key] = cache
+                counts = run_local_suite(examples_dir, args.operation, verbose=args.verbose)
+            finally:
+                for key, value in previous.items():
+                    if value is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = value
+    elif args.operation == "run-prebuilt":
         if args.binaries_dir is None:
             raise TestFailure("run-prebuilt requires --binaries-dir")
         binaries_dir = args.binaries_dir
@@ -969,9 +1004,11 @@ def main() -> None:
             bundle_context = contextlib.nullcontext(str(bundle_output_dir.resolve()))
 
         with bundle_context as bundle_directory:
-            bundle = bundle_platform(Path(bundle_directory))
+            bundle = args.bundle.resolve() if args.bundle else bundle_platform(Path(bundle_directory))
+            if not bundle.is_file():
+                raise TestFailure(f"Bundle does not exist: {bundle}")
             bundle_hash = sha256(bundle)
-            print(f"Fresh platform bundle SHA-256: {bundle_hash}")
+            print(f"Platform bundle SHA-256: {bundle_hash}")
             with serve_bundle(bundle) as bundle_url:
                 with rewrite_examples_for_bundle(
                     examples_dir, bundle_url

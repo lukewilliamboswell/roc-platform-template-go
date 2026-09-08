@@ -12,11 +12,9 @@ tests, fresh-package integration tests, and cross-builder CI.
 
 ## Upstream dependency
 
-Windows support requires the explicit MinGW targets introduced by
-[roc-lang/roc#10637](https://github.com/roc-lang/roc/pull/10637). Until that
-change ships in a nightly, use a Roc build containing the pull request. The
-repository pin in [`.roc-version`](.roc-version) will be advanced to the first
-compatible nightly before this support is released.
+The exact development compiler is declared in the `roc` field of
+[`platform/main.roc`](platform/main.roc) and each example header. CI and the
+nightly updater read these headers; there is no separate version file.
 
 Go's cgo toolchain uses the MinGW ABI on Windows, so this platform deliberately
 targets `x64mingw` and `arm64mingw`, including their baseline `v1` variants.
@@ -27,11 +25,32 @@ with these host archives.
 
 - The Go version in [`.go-version`](.go-version)
 - Zig 0.16.0
-- The Roc nightly in [`.roc-version`](.roc-version)
+- The Roc nightly in the `roc` header in [`platform/main.roc`](platform/main.roc)
 - Python 3.11 or newer
 
 Published platform bundles contain the prebuilt host and Linux runtime inputs;
 applications consuming a release bundle only need Roc.
+
+## Run an example
+
+This template has **no published platform release yet**. The examples currently
+use local platform source and require a contributor build:
+
+```console
+python scripts/build.py --all
+roc version
+roc examples/hello_world/main.roc
+```
+
+Expected output: `Hello, World!`
+Use the compiler named in the example's `roc` header. Each application has its
+own folder so companion modules and input files can travel with it.
+
+The first release must provide a prebuilt platform archive, a starter containing
+complete application files, and its exact compiler requirement. A reviewed
+follow-up will replace the local example dependencies with immutable release
+URLs and link the suitable release here. Thereafter users will only need Roc.
+See [the release checklist](CONTRIBUTING.md#release-checklist).
 
 ## Build and test
 
@@ -62,11 +81,10 @@ with Roc's `CGlue.roc`. Regenerate it after changing the platform boundary:
 python scripts/generate_c_glue.py
 ```
 
-This command uses `.roc-version` for both the compiler revision and the glue
-spec revision; CI checks that the committed header is current.
+This command reads the compiler pin from `platform/main.roc` and uses the same
+revision for the glue specification. CI checks that the committed header is current.
 
-The test command does not point examples at `../platform/main.roc`. It invokes
-`roc bundle` to create a fresh platform package, serves that `.tar.zst` over
+The development test command invokes `roc bundle` to create a fresh platform package, serves that `.tar.zst` over
 localhost HTTP, rewrites temporary example copies to the bundle URL, and then
 runs `check`, `test`, `build`, and every behavioral case. This exercises the
 same package boundary users receive.
@@ -126,16 +144,15 @@ problems and builder-host-dependent output failures.
 
 ## Runtime provenance and licensing
 
-Linux and Windows C runtime/link inputs are explicit checked-in artifacts
-generated with the pinned Zig toolchain. Normal CI verifies every vendored file
-against the central checksum manifest and consumes them; it does not regenerate
-them. Maintainers can reproduce or update them using the Python process
-documented in [RUNTIME_PROVENANCE.md](RUNTIME_PROVENANCE.md). Checksums are
-pinned in [`scripts/zig_runtime.sha256`](scripts/zig_runtime.sha256).
-Relevant changes on `main` also reproduce the artifacts and publish signed
-[SLSA provenance](SLSA_PROVENANCE.md) through GitHub's attestations service.
+Third-party runtime/link inputs have an independent, reproducible CI release
+process. Each release supplies an archive, SPDX SBOM, and downloadable signed
+provenance/SBOM attestations. Routine platform builds consume a digest-pinned,
+verified runtime release and rebuild the Go host from current source.
+See [RUNTIME_PROVENANCE.md](RUNTIME_PROVENANCE.md) for source identity,
+verification, bootstrap migration, and recovery instructions, and
+[SLSA_PROVENANCE.md](SLSA_PROVENANCE.md) for the attestation trust model.
 
-The same process vendors Zig's text-only Darwin `libSystem.tbd` interface so
+The same process packages Zig's text-only Darwin `libSystem.tbd` interface so
 non-macOS producers can cross-link macOS artifacts. The runtime itself is
 provided by macOS and is not redistributed.
 

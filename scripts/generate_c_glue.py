@@ -13,9 +13,10 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from export_roc_version import pinned_tag
+
 
 ROOT = Path(__file__).resolve().parents[1]
-ROC_VERSION_FILE = ROOT / ".roc-version"
 PLATFORM_FILE = ROOT / "platform" / "main.roc"
 OUTPUT_FILE = ROOT / "host" / "roc" / "roc_platform_abi.h"
 PIN_PATTERN = re.compile(
@@ -25,14 +26,10 @@ ROC_REVISION_PATTERN = re.compile(r"\b[0-9a-f]{7,40}\b")
 
 
 def pinned_revision() -> tuple[str, str]:
-    values = ROC_VERSION_FILE.read_text(encoding="utf-8").splitlines()
-    if len(values) != 1:
-        raise SystemExit(".roc-version must contain exactly one Roc nightly tag")
-
-    tag = values[0]
+    tag = pinned_tag()
     match = PIN_PATTERN.fullmatch(tag)
     if match is None:
-        raise SystemExit(f"invalid Roc nightly tag in .roc-version: {tag!r}")
+        raise SystemExit(f"invalid Roc nightly tag in compiler headers: {tag!r}")
     return tag, match.group("revision")
 
 

@@ -1,6 +1,6 @@
 # Third-party licenses
 
-The files below are vendored as static-link inputs under
+The files below are supplied as static-link inputs in the runtime release and installed under
 `platform/targets/{x64musl,x64v1musl,arm64musl,arm64v1musl}/`:
 
 - `crt1.o` and `libc.a`: musl libc 1.2.5 with Zig's security backports
@@ -8,7 +8,7 @@ The files below are vendored as static-link inputs under
 - `libcompiler_rt.a`: compiler runtime emitted by Zig 0.16.0
 
 The MinGW targets under
-`platform/targets/{x64mingw,x64v1mingw,arm64mingw,arm64v1mingw}/` vendor:
+`platform/targets/{x64mingw,x64v1mingw,arm64mingw,arm64v1mingw}/` contain:
 
 - `crt2.obj` and `libmingw32.lib`: mingw-w64 startup and C runtime support
 - `zigc.lib` and `compiler_rt.lib`: Zig libc and compiler runtime support
@@ -16,11 +16,11 @@ The MinGW targets under
   for Windows system libraries; these archives contain no Microsoft runtime
   implementation
 
-The platform also vendors Zig's Darwin text-based interface stub at
+The runtime release also includes Zig's Darwin text-based interface stub at
 `platform/targets/macos-sysroot/usr/lib/libSystem.tbd`. It supplies symbol
 metadata for cross-linking; it does not contain Apple's libSystem runtime.
 
-These files are generated or copied by `scripts/vendor_zig_runtime.py` from
+These release files are generated or copied by `scripts/vendor_zig_runtime.py` from
 the libc sources and interface metadata in the pinned Zig 0.16.0 distribution.
 See `RUNTIME_PROVENANCE.md` for the exact process and checksums.
 
