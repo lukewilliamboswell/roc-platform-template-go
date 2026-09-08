@@ -35,11 +35,16 @@ separate branch. Do not weaken tests or rewrite release URLs to accept a nightly
 - No platform release exists. Current-source CI tests fresh bundles. Follow the
   [first-release checklist](../CONTRIBUTING.md#release-checklist) to establish
   immutable public URLs, starters, and a separate published-download lane.
-- After merging these workflow changes, manually dispatch the updater. Verify its
-  signed pin-only commit and validation runs against the actual PR head. Exercise
-  a no-op and failed candidate. Manual mode does not mirror required status checks;
-  ordinary bot PR workflows may need approval to start. Verify a real protected
-  merge before declaring rollout complete.
+- The migrated [live updater](https://github.com/lukewilliamboswell/roc-platform-template-go/actions/runs/34199665795)
+  created [PR #22](https://github.com/lukewilliamboswell/roc-platform-template-go/pull/22).
+  Its GitHub-verified commit changes only the 13 configured compiler-pin literals;
+  validation was dispatched against that exact head. The stale reserved branch
+  from the failed legacy updater contained only a `.roc-version` change and was
+  reset to the migrated base after preserving its commit locally.
+- Manual mode does not mirror required status checks. GitHub held the ordinary
+  bot PR workflows for approval; these were approved after inspecting the pin-only
+  diff. The bootstrap PR merged through the required `CI result` rule without a
+  bypass. Compiler promotion remains a separate manual review.
 
 ## Local migration validation (2026-09-08)
 
@@ -56,5 +61,5 @@ With the unchanged header nightly and Go 1.27.0 / Zig 0.16.0:
 - Published mode correctly rejected the current local dependencies. No published
   download test or macOS/Windows native execution is claimed by this local run.
 
-The nightly migration is part of the runtime publisher bootstrap PR. A live
-nightly updater trial remains separate from the runtime release acceptance run.
+The nightly migration is part of the runtime publisher bootstrap PR. The live
+nightly updater trial is separate from the runtime release acceptance run.
