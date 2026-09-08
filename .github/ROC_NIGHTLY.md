@@ -29,9 +29,9 @@ separate branch. Do not weaken tests or rewrite release URLs to accept a nightly
   false`). GitHub uses this setting for both PR creation and approval; the
   controller only creates PRs and never approves them. The setting was enabled
   on 2026-09-08 and read back successfully; default permissions remain read-only.
-- `main` was unprotected and the repository had no rulesets. Configure the intended
-  review policy and real current-commit required checks before relying on branch
-  enforcement. Keep automatic merging off and grant no bot bypass.
+- `main` now requires PRs and the strict GitHub Actions `CI result` check, with
+  zero additional reviewer approvals, no bypass actors, and force-push/deletion
+  protections. Automatic nightly merging remains disabled.
 - No platform release exists. Current-source CI tests fresh bundles. Follow the
   [first-release checklist](../CONTRIBUTING.md#release-checklist) to establish
   immutable public URLs, starters, and a separate published-download lane.
@@ -56,5 +56,5 @@ With the unchanged header nightly and Go 1.27.0 / Zig 0.16.0:
 - Published mode correctly rejected the current local dependencies. No published
   download test or macOS/Windows native execution is claimed by this local run.
 
-Workflow changes are local until committed and merged. No live updater acceptance
-run with these changed workflows has been performed.
+The nightly migration is part of the runtime publisher bootstrap PR. A live
+nightly updater trial remains separate from the runtime release acceptance run.

@@ -13,6 +13,7 @@ target-specific artifact, such as Linux runtime vendoring.
 ## Before opening a change
 
 ```console
+python scripts/fetch_runtime.py
 python scripts/build.py --all
 go -C host test ./...
 python scripts/check_roc_format.py
@@ -79,7 +80,7 @@ Runtime dependencies are released separately from Go hosts and platform packages
 Follow [RUNTIME_PROVENANCE.md](RUNTIME_PROVENANCE.md) to review trusted source
 changes, publish a new runtime version, and update the consumer lock. Routine CI
 consumes the selected release; nightly pin updates do not regenerate runtimes.
-Use `python scripts/fetch_runtime.py` after the initial release migration.
+Use `python scripts/fetch_runtime.py` before building platform bundles.
 Keep license notices and source/SBOM inventory accurate. Never commit generated
 runtime or host binaries or overwrite an existing release.
 

@@ -32,7 +32,7 @@ captures the dispatch commit and accepts no alternative source ref. It:
 1. Checks that neither the runtime tag nor release already exists.
 2. Builds twice using isolated caches and the checksum-pinned Zig distribution.
 3. Compares archives and metadata byte-for-byte. The first `0.1.0` release must
-   match the original `scripts/zig_runtime.sha256` binary baseline.
+   match the original `scripts/runtime_bootstrap.sha256` binary baseline.
 4. Runs the full existing cross-builder and native application validation matrix
    with the candidate archive. These jobs have read-only permissions.
 5. In a separate job that executes no build scripts, creates SLSA provenance for
@@ -49,12 +49,9 @@ Routine nightly and pull-request CI cannot publish or attest runtime releases.
 
 ## Consume and verify
 
-After the initial release is published, a reviewed follow-up installs its proposed
-lock as `scripts/runtime_release.json`, switches CI to the download, and removes
-tracked runtime files. History is preserved. During this bootstrap only, CI still
-supports the checked-in baseline.
-
-The normal contributor sequence after that migration is:
+`scripts/runtime_release.json` is the reviewed dependency lock. Routine CI fetches
+that exact release; generated runtime files are ignored rather than tracked.
+Git history is preserved. The normal contributor sequence is:
 
 ```console
 python scripts/fetch_runtime.py

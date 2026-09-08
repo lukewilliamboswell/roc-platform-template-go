@@ -17,3 +17,5 @@ platform/targets/*/host.h
 
 /.runtime-cache/
 /platform/runtime/
+
+/platform/targets/

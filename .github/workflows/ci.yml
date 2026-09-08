@@ -34,8 +34,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  vendored-runtime-integrity:
-    name: verify vendored runtime checksums
+  runtime-integrity:
+    name: runtime tooling and source policy
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
@@ -52,9 +52,6 @@ jobs:
       - name: Check tracked binary policy
         run: python scripts/check_no_binaries.py
 
-      - name: Verify bootstrap runtime artifacts
-        if: hashFiles('scripts/runtime_release.json') == ''
-        run: python scripts/vendor_zig_runtime.py --verify-hashes
 
   cross-build:
     name: current-source (${{ matrix.builder }})
@@ -174,7 +171,7 @@ jobs:
           python scripts/fetch_runtime.py --candidate runtime-candidate/roc-go-runtimes-*.tar.gz --sha256 "$CANDIDATE_SHA256"
 
       - name: Fetch and authenticate runtime release
-        if: inputs.runtime_candidate_artifact == '' && hashFiles('scripts/runtime_release.json') != ''
+        if: inputs.runtime_candidate_artifact == ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: python scripts/fetch_runtime.py
@@ -238,7 +235,7 @@ jobs:
   result:
     name: CI result
     if: always()
-    needs: [vendored-runtime-integrity, cross-build, run-cross-built]
+    needs: [runtime-integrity, cross-build, run-cross-built]
     runs-on: ubuntu-22.04
     steps:
       - name: Require every validation lane

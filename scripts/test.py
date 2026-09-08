@@ -665,11 +665,10 @@ def write_artifact_manifest(
         for binary in sorted(binaries)
     ]
     manifest = {
-        "format": 1,
+        "format": 2,
         "target": target,
         "platform_bundle_sha256": platform_bundle_sha256,
-        "runtime_archive_sha256": json.loads((ROOT / "platform/runtime/receipt.json").read_text())["sha256"]
-        if (ROOT / "platform/runtime/receipt.json").exists() else None,
+        "runtime_archive_sha256": json.loads((ROOT / "platform/runtime/receipt.json").read_text())["sha256"],
         "roc_version": subprocess.check_output(
             ["roc", "version"], text=True
         ).strip(),
@@ -685,16 +684,19 @@ def verify_artifact_manifest(target_dir: Path) -> tuple[str, set[str]]:
     if not manifest_path.is_file():
         raise TestFailure(f"Missing artifact manifest: {manifest_path}")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if not isinstance(manifest, dict) or manifest.get("format") != 1:
+    if not isinstance(manifest, dict) or manifest.get("format") != 2:
         raise TestFailure(f"Unsupported artifact manifest: {manifest_path}")
     target = manifest.get("target")
     bundle_hash = manifest.get("platform_bundle_sha256")
+    runtime_hash = manifest.get("runtime_archive_sha256")
     roc_version = manifest.get("roc_version")
     entries = manifest.get("binaries")
     if (
         target not in SUPPORTED_TARGETS
         or not isinstance(bundle_hash, str)
         or re.fullmatch(r"[0-9a-f]{64}", bundle_hash) is None
+        or not isinstance(runtime_hash, str)
+        or re.fullmatch(r"[0-9a-f]{64}", runtime_hash) is None
         or not isinstance(roc_version, str)
         or not roc_version.strip()
         or not isinstance(entries, list)
