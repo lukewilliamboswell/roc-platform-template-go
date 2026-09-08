@@ -17,7 +17,7 @@ from runtime_assets import (ROOT, REPO, WORKFLOW, MANIFEST, RUNTIME_PATHS, PAYLO
 
 LOCK = ROOT / "scripts/runtime_release.json"
 PROVENANCE = "https://slsa.dev/provenance/v1"
-SBOM_TYPE = "https://spdx.dev/Document"
+SBOM_TYPE = "https://spdx.dev/Document/v2.3"
 
 
 def load_lock(path: Path = LOCK) -> dict:

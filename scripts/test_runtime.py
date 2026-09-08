@@ -92,7 +92,14 @@ class RuntimeTests(unittest.TestCase):
     def test_release_verification_requires_both_predicates_and_matching_sbom(self):
         document = json.loads((self.archive.parent / 'runtime.spdx.json').read_text())
         verified = [{'verificationResult': {'statement': {'predicate': document}}}]
-        with patch.object(fetch, 'verify_attestation', return_value=verified) as verify:
+        # The pinned signing action derives the predicate URI from spdxVersion.
+        def producer_verification(artifact, bundle, lock, predicate):
+            supported = {fetch.PROVENANCE, 'https://spdx.dev/Document/v' + document['spdxVersion'].split('-')[1]}
+            if predicate not in supported:
+                raise ValueError('No attestation with the requested predicate')
+            return verified
+
+        with patch.object(fetch, 'verify_attestation', side_effect=producer_verification) as verify:
             self.assertEqual(fetch.verify_release(self.archive.parent, self.lock), self.archive)
             self.assertEqual([c.args[3] for c in verify.call_args_list], [fetch.PROVENANCE, fetch.PROVENANCE, fetch.SBOM_TYPE])
         with patch.object(fetch, 'verify_attestation', return_value=[{'verificationResult': {'statement': {'predicate': {}}}}]):
