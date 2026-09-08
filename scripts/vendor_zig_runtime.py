@@ -78,7 +78,8 @@ def make_work_dir() -> Path:
         raise RuntimeError(
             "Runtime work parent must exist and be short enough for reproducible paths"
         )
-    base_prefix = "roc-go-zig-runtime."
+    # Roc cleans roc-* directories in /tmp; avoid that namespace while builds run.
+    base_prefix = "go-zig-runtime."
     prefix = (base_prefix + "-" * prefix_length)[:prefix_length]
     alphabet = string.ascii_letters + string.digits
     for _ in range(100):
@@ -339,8 +340,12 @@ def main() -> None:
         action="store_true",
         help="verify checked-in files against the central checksum manifest",
     )
+    parser.add_argument("--output-dir", type=Path, help="write generated target inputs here instead of vendoring")
     parser.add_argument("--keep-work", action="store_true")
     args = parser.parse_args()
+
+    if args.output_dir and (args.check or args.verify_hashes):
+        parser.error("--output-dir cannot be combined with verification modes")
 
     if args.verify_hashes:
         verify_checked_in_hashes()
@@ -416,8 +421,9 @@ def main() -> None:
             )
             raise RuntimeError(f"Generated runtime checksums changed:\n{difference}")
 
+        destination_root = args.output_dir or ROOT / "platform" / "targets"
         for target, artifacts in TARGET_ARTIFACTS.items():
-            destination_dir = ROOT / "platform" / "targets" / target
+            destination_dir = destination_root / target
             destination_dir.mkdir(parents=True, exist_ok=True)
             for artifact in artifacts:
                 source = generated_dir / target / artifact
@@ -427,7 +433,7 @@ def main() -> None:
                         raise RuntimeError(f"Checked-in artifact differs: {destination}")
                 else:
                     shutil.copy2(source, destination)
-        darwin_destination = ROOT / "platform" / "targets" / DARWIN_SYSROOT
+        darwin_destination = destination_root / DARWIN_SYSROOT
         if args.check:
             if darwin_generated.read_bytes() != darwin_destination.read_bytes():
                 raise RuntimeError(
@@ -436,7 +442,8 @@ def main() -> None:
         else:
             darwin_destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(darwin_generated, darwin_destination)
-            MANIFEST.write_text(actual_manifest, encoding="utf-8")
+            if not args.output_dir:
+                MANIFEST.write_text(actual_manifest, encoding="utf-8")
         if args.check:
             print("Zig runtime artifacts are reproducible and match checked-in copies.")
         else:

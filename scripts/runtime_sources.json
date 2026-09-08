@@ -1,0 +1,46 @@
+{
+  "format": 1,
+  "zig": {
+    "version": "0.16.0",
+    "url": "https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz",
+    "sha256": "70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00"
+  },
+  "components": {
+    "musl": {
+      "name": "musl libc",
+      "version": "1.2.5",
+      "license": "MIT",
+      "source_paths": ["lib/libc/musl", "lib/libc/include"],
+      "notice": "musl-COPYRIGHT",
+      "source_notice": "lib/libc/musl/COPYRIGHT",
+      "notes": "The patched sources bundled with the pinned Zig distribution, not pristine upstream musl. The distribution digest identifies all bundled changes."
+    },
+    "zig": {
+      "name": "Zig libc and compiler runtime",
+      "version": "0.16.0",
+      "license": "MIT",
+      "source_paths": ["lib/compiler_rt", "lib/compiler_rt.zig", "lib/c.zig", "lib/libc"],
+      "notice": "zig-LICENSE",
+      "source_notice": "LICENSE",
+      "notes": "Built with Zig 0.16.0 from its bundled runtime sources."
+    },
+    "mingw": {
+      "name": "mingw-w64 runtime and Windows import metadata",
+      "version": "13.0.0-alpha",
+      "license": "NOASSERTION",
+      "source_paths": ["lib/libc/mingw", "lib/libc/include/any-windows-any"],
+      "notice": "mingw-w64-COPYING",
+      "source_notice": "lib/libc/mingw/COPYING",
+      "notes": "Version from bundled _mingw_mac.h. Per-file license exceptions are covered by the bundled notice. Import archives describe Windows DLL interfaces; no Windows DLL implementation is shipped."
+    },
+    "darwin": {
+      "name": "Darwin libSystem interface metadata",
+      "version": "zig-0.16.0",
+      "license": "NOASSERTION",
+      "source_paths": ["lib/libc/darwin/libSystem.tbd"],
+      "notice": "zig-LICENSE",
+      "source_notice": "LICENSE",
+      "notes": "Text-only interface stub supplied by Zig; no Apple runtime implementation is shipped."
+    }
+  }
+}

@@ -1,6 +1,16 @@
 name: CI
 
 on:
+  workflow_call:
+    inputs:
+      runtime_candidate_artifact:
+        type: string
+        required: false
+        default: ""
+      runtime_candidate_sha256:
+        type: string
+        required: false
+        default: ""
   pull_request:
   push:
     branches: [main]
@@ -14,6 +24,10 @@ on:
 
 permissions:
   contents: read
+
+# Candidate inputs exist only on workflow_call, never on nightly dispatch.
+env:
+  RUNTIME_CANDIDATE_SHA256: ${{ inputs.runtime_candidate_sha256 || '' }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -32,11 +46,18 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Verify every vendored runtime artifact
+      - name: Test maintenance tooling
+        run: python -m unittest discover -s scripts -p "test_*.py"
+
+      - name: Check tracked binary policy
+        run: python scripts/check_no_binaries.py
+
+      - name: Verify bootstrap runtime artifacts
+        if: hashFiles('scripts/runtime_release.json') == ''
         run: python scripts/vendor_zig_runtime.py --verify-hashes
 
   cross-build:
-    name: cross-build (${{ matrix.builder }})
+    name: current-source (${{ matrix.builder }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -137,6 +158,27 @@ jobs:
       - name: Generate platform documentation
         run: roc docs platform/main.roc --output=ci-docs --no-cache
 
+      - name: Download same-run runtime candidate
+        if: inputs.runtime_candidate_artifact != ''
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: ${{ inputs.runtime_candidate_artifact }}
+          path: runtime-candidate
+
+      - name: Install same-run runtime candidate
+        if: inputs.runtime_candidate_artifact != ''
+        shell: bash
+        env:
+          CANDIDATE_SHA256: ${{ inputs.runtime_candidate_sha256 }}
+        run: |
+          python scripts/fetch_runtime.py --candidate runtime-candidate/roc-go-runtimes-*.tar.gz --sha256 "$CANDIDATE_SHA256"
+
+      - name: Fetch and authenticate runtime release
+        if: inputs.runtime_candidate_artifact == '' && hashFiles('scripts/runtime_release.json') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/fetch_runtime.py
+
       - name: Cross-compile every Go host
         run: python scripts/build.py --all
 
@@ -192,3 +234,21 @@ jobs:
 
       - name: Run every case against every builder output
         run: python scripts/run_ci_artifacts.py --artifacts-root ci-artifacts --target ${{ matrix.target }} --verbose
+
+  result:
+    name: CI result
+    if: always()
+    needs: [vendored-runtime-integrity, cross-build, run-cross-built]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Require every validation lane
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PYCODE'
+          import json, os
+          results = json.loads(os.environ["RESULTS"])
+          failed = [name for name, job in results.items() if job["result"] != "success"]
+          if failed:
+              raise SystemExit(f"Validation did not pass: {failed}")
+          PYCODE
