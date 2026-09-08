@@ -10,6 +10,19 @@ All repository automation lives in `scripts/` and is Python. Keep commands
 cross-platform unless a script is explicitly a maintainer-only tool for a
 target-specific artifact, such as Linux runtime vendoring.
 
+## Nightly compiler updates
+
+The updater runs daily at 13:31 UTC and can also be dispatched manually. It
+changes only the compiler pins selected in `.github/roc-nightly.json` and
+automatically merges verified bot updates after all configured CI passes on the
+current main base. Branch protection remains enforced. If main or the candidate
+moves, rerun the updater to refresh and revalidate the PR.
+
+Reserve `automation/roc-nightly` for the bot. Put source fixes, runtime dependency
+updates, and platform URL changes in separate PRs; do not weaken tests to accept
+a nightly. See the [upstream integration guide](https://github.com/lukewilliamboswell/roc-automation/blob/b60d561cbd53c911b29238b30624827f8487113a/docs/integration.md)
+for controller setup and permissions.
+
 ## Before opening a change
 
 ```console
