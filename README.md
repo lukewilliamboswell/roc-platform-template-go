@@ -48,7 +48,7 @@ Expected output: `Hello, World!`
 Use the compiler named in the example's `roc` header. Each application has its
 own folder so companion modules and input files can travel with it.
 
-The first release must provide a prebuilt platform archive, a starter containing
+The first platform release must provide a prebuilt platform archive, a starter containing
 complete application files, and its exact compiler requirement. A reviewed
 follow-up will replace the local example dependencies with immutable release
 URLs and link the suitable release here. Thereafter users will only need Roc.

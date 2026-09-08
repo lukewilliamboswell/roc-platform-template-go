@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "repository": "lukewilliamboswell/roc-platform-template-go",
+  "sha256": "9d3a957122962b9e837c2b158c4798475250214d214eec53dcb7fd3de8c981bd",
+  "signer_digest": "bdaacfab09ae6e3cd19d4a2930b6b8c93741cc23",
+  "signer_workflow": "lukewilliamboswell/roc-platform-template-go/.github/workflows/release-runtime.yml",
+  "source_commit": "bdaacfab09ae6e3cd19d4a2930b6b8c93741cc23",
+  "source_ref": "refs/heads/main",
+  "version": "0.1.0"
+}
