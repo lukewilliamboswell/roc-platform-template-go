@@ -38,7 +38,8 @@ separate branch. Do not weaken tests or rewrite release URLs to accept a nightly
 - The migrated [live updater](https://github.com/lukewilliamboswell/roc-platform-template-go/actions/runs/34199665795)
   created [PR #22](https://github.com/lukewilliamboswell/roc-platform-template-go/pull/22).
   Its GitHub-verified commit changes only the 13 configured compiler-pin literals;
-  validation was dispatched against that exact head. The stale reserved branch
+  its [full candidate CI](https://github.com/lukewilliamboswell/roc-platform-template-go/actions/runs/34199699290)
+  and updater completed successfully against that exact head. The stale reserved branch
   from the failed legacy updater contained only a `.roc-version` change and was
   reset to the migrated base after preserving its commit locally.
 - Manual mode does not mirror required status checks. GitHub held the ordinary
