@@ -183,7 +183,7 @@ jobs:
         run: python scripts/test.py --operation produce --output-dir ci-output/binaries --bundle-output-dir ci-output/bundle --target x64mac --target arm64mac --target x64musl --target x64v1musl --target arm64musl --target arm64v1musl --target x64mingw --target x64v1mingw --target arm64mingw --target arm64v1mingw --verbose
 
       - name: Upload cross-compiled test apps
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: apps-${{ matrix.builder }}
           path: ci-output
