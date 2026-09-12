@@ -1,4 +1,4 @@
-app [main!] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-11-793f9d8" }
+app [main!] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
 
 import pf.Stdout
 import pf.Stderr
