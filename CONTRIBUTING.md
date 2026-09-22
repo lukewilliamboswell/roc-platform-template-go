@@ -100,7 +100,8 @@ runtime or host binaries or overwrite an existing release.
 ## Windows
 
 Go cgo archives use the MinGW ABI and must remain under Roc's `x64mingw`,
-`x64v1mingw`, `arm64mingw`, and `arm64v1mingw` target names. Do not relabel
+`x64v1mingw` target name. Windows ARM64 support is suspended until native
+execution is reliable. Do not relabel
 them as `x64win` or `arm64win`; those are MSVC targets with different startup,
 runtime, and linker requirements.
 

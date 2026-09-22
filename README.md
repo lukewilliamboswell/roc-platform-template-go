@@ -78,7 +78,9 @@ builds must produce identical archives and SBOMs, and the full platform test
 matrix must pass before signing and immutable publication. Routine platform
 updates reuse the locked release and rebuild the Go hosts from current source.
 
-See [RUNTIME_PROVENANCE.md](RUNTIME_PROVENANCE.md) for source, verification, and
+See [LINKER_INPUTS.md](LINKER_INPUTS.md) for the new independent linker-input
+release stream and [RUNTIME_PROVENANCE.md](RUNTIME_PROVENANCE.md) for the
+historical runtime release's source, verification, and
 release details, [SLSA_PROVENANCE.md](SLSA_PROVENANCE.md) for the attestation trust
 model, and [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for redistribution
 notices.
@@ -93,7 +95,6 @@ Every target uses a Go `libhost.a` built from this repository.
 | `x64musl`, `x64v1musl` | Zig/musl inputs from the runtime release |
 | `arm64musl`, `arm64v1musl` | Zig/musl inputs from the runtime release |
 | `x64mingw`, `x64v1mingw` | Zig/mingw-w64 and Windows import inputs from the runtime release |
-| `arm64mingw`, `arm64v1mingw` | Zig/mingw-w64 and Windows import inputs from the runtime release |
 
 The `v1` variants use Roc's baseline CPU feature sets. Go's cgo toolchain uses
 the MinGW ABI on Windows; Roc's `x64win` and `arm64win` MSVC targets are
