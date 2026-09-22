@@ -2,23 +2,23 @@
   "format": 1,
   "targets": ["arm64-macos", "x86_64-macos"],
   "install_name": "/usr/lib/libSystem.B.dylib",
-  "selection": "External symbols audited from the x86_64 Go 1.27 c-archive host and Roc application, plus the Mach-O lazy-binding entry point required by the linker; the runtime/cgo API set is architecture-neutral and the arm64 interface is accepted only after native arm64 CI. Review whenever the host, Roc application, linker, or pinned Go release changes.",
+  "selection": "Union of external symbols audited from the x86_64 and arm64 Go 1.27 c-archive hosts and Roc applications, plus the Mach-O lazy-binding entry point required by the linker. Darwin filesystem entry points differ by architecture: x86_64 uses legacy INODE64 spellings while arm64 uses unsuffixed spellings. Review whenever the host, Roc application, linker, target architecture, or pinned Go release changes.",
   "symbols": [
     "___bzero", "___error", "___memcpy_chk", "___stderrp", "___stdinp", "_abort",
-    "_arc4random_buf", "_clock_gettime", "_close", "_closedir", "_dup", "_dup2",
-    "_execve", "_exit", "_fcntl", "_fdopendir$INODE64", "_ferror", "_fgetc",
-    "_fprintf", "_fputc", "_free", "_fstat64", "_fstatat64", "_fwrite", "_getcwd",
+    "_arc4random_buf", "_bzero", "_clock_gettime", "_close", "_closedir", "_dup", "_dup2",
+    "_execve", "_exit", "_fcntl", "_fdopendir", "_fdopendir$INODE64", "_ferror", "_fgetc",
+    "_fprintf", "_fputc", "_free", "_fstat", "_fstat64", "_fstatat", "_fstatat64", "_fwrite", "_getcwd",
     "_getpid", "_getrlimit", "_issetugid", "_kevent", "_kill", "_kqueue", "_lseek",
-    "_lstat64", "_mach_absolute_time", "_mach_timebase_info", "_madvise", "_malloc",
-    "_memcpy", "_memset", "_mmap", "_munmap", "_nanosleep", "_notify_is_valid_token", "_open",
+    "_lstat", "_lstat64", "_mach_absolute_time", "_mach_timebase_info", "_madvise", "_malloc",
+    "_memcpy", "_memset", "_mlock", "_mmap", "_munmap", "_nanosleep", "_notify_is_valid_token", "_open",
     "_pthread_attr_destroy", "_pthread_attr_getstacksize", "_pthread_attr_init",
     "_pthread_attr_setdetachstate", "_pthread_attr_setstacksize", "_pthread_cond_broadcast",
     "_pthread_cond_init", "_pthread_cond_signal", "_pthread_cond_timedwait_relative_np",
     "_pthread_cond_wait", "_pthread_create", "_pthread_get_stackaddr_np",
     "_pthread_get_stacksize_np", "_pthread_key_create", "_pthread_kill", "_pthread_mutex_init",
     "_pthread_mutex_lock", "_pthread_mutex_unlock", "_pthread_self", "_pthread_setspecific",
-    "_pthread_sigmask", "_raise", "_read", "_readdir_r$INODE64", "_setenv", "_setrlimit",
-    "_sigaction", "_sigaltstack", "_stat64", "_strerror", "_strlen", "_sysctl",
+    "_pthread_sigmask", "_raise", "_read", "_readdir_r", "_readdir_r$INODE64", "_setenv", "_setrlimit",
+    "_sigaction", "_sigaltstack", "_stat", "_stat64", "_strerror", "_strlen", "_sysctl",
     "_sysctlbyname", "_unsetenv", "_usleep", "_vfprintf", "_write",
     "_xpc_date_create_from_current", "dyld_stub_binder"
   ],
@@ -26,6 +26,6 @@
     "host_recipe": "scripts/build.py",
     "go_source": "https://go.googlesource.com/go/+/refs/tags/go1.27.0/src/runtime/cgo/",
     "public_api": "https://opensource.apple.com/source/Libc/",
-    "method": "Unresolved external symbols in the current-source x86_64 host archive and Roc application, including linker-required lazy binding support; checked against Go runtime/cgo source and validated by cross-linking plus native arm64 CI."
+    "method": "Unresolved external symbols from current-source x86_64 and arm64 host archives and Roc applications, including linker-required lazy binding support; checked against Go runtime/cgo source and validated by cross-linking plus native CI on both architectures."
   }
 }
