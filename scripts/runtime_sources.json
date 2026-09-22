@@ -7,6 +7,7 @@
   },
   "components": {
     "musl": {
+      "source": "zig-distribution",
       "name": "musl libc",
       "version": "1.2.5",
       "license": "MIT",
@@ -16,6 +17,7 @@
       "notes": "The patched sources bundled with the pinned Zig distribution, not pristine upstream musl. The distribution digest identifies all bundled changes."
     },
     "zig": {
+      "source": "zig-distribution",
       "name": "Zig libc and compiler runtime",
       "version": "0.16.0",
       "license": "MIT",
@@ -25,6 +27,7 @@
       "notes": "Built with Zig 0.16.0 from its bundled runtime sources."
     },
     "mingw": {
+      "source": "zig-distribution",
       "name": "mingw-w64 runtime and Windows import metadata",
       "version": "13.0.0-alpha",
       "license": "NOASSERTION",
@@ -34,6 +37,7 @@
       "notes": "Version from bundled _mingw_mac.h. Per-file license exceptions are covered by the bundled notice. Import archives describe Windows DLL interfaces; no Windows DLL implementation is shipped."
     },
     "darwin": {
+      "source": "repository",
       "name": "Project-authored Darwin libSystem interface metadata",
       "version": "1",
       "license": "LicenseRef-Linkage-Metadata",

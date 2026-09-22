@@ -26,10 +26,17 @@ def main():
     if version != zig["version"]:
         raise SystemExit("Zig distribution version mismatch")
     for component in sources["components"].values():
+        source = component["source"]
+        if source == "zig-distribution":
+            source_root = destination
+        elif source == "repository":
+            source_root = ROOT
+        else:
+            raise SystemExit(f"Unknown component source: {source}")
         for path in component["source_paths"]:
-            if not (destination / path).exists():
+            if not (source_root / path).exists():
                 raise SystemExit(f"Missing declared source: {path}")
-        upstream = (destination / component["source_notice"]).read_text().splitlines()
+        upstream = (source_root / component["source_notice"]).read_text().splitlines()
         recorded = (ROOT / "licenses" / component["notice"]).read_text().splitlines()
         if [line.rstrip() for line in upstream] != [line.rstrip() for line in recorded]:
             raise SystemExit(f"License notice differs from trusted distribution: {component['notice']}")
