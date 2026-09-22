@@ -1,0 +1,24 @@
+{
+  "archive": {
+    "name": "roc-go-linker-inputs-1.0.0.tar.gz",
+    "sha256": "6f344ba164102205c1de47a8129be83dbedd5319ea02abe13a0da2a7dc711564",
+    "size": 5620017
+  },
+  "release_tag": "linker-inputs-v1.0.0",
+  "sbom": {
+    "name": "linker-inputs.spdx.json",
+    "sha256": "28ce2520096b553c1ca8232962fcb4555004a78a593bc7e5fbd3e3a0d5475e4d",
+    "size": 50328
+  },
+  "schema_version": 1,
+  "signer": {
+    "commit": "4ce69c1aa52fbdc950643440f98152e2ecb64e43",
+    "repository": "lukewilliamboswell/roc-automation",
+    "workflow": ".github/workflows/publish-linker-inputs.yml"
+  },
+  "source": {
+    "commit": "c76966b583ae3e72130ccf82f13902df9bb12d7a",
+    "ref": "refs/heads/main",
+    "repository": "lukewilliamboswell/roc-platform-template-go"
+  }
+}

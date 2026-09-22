@@ -175,7 +175,7 @@ jobs:
         if: inputs.runtime_candidate_artifact == ''
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python scripts/fetch_legacy_runtime.py
+        run: python scripts/fetch_runtime.py
 
       - name: Cross-compile every Go host
         run: python scripts/build.py --all
