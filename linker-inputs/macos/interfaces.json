@@ -10,7 +10,7 @@
     "_fprintf", "_fputc", "_free", "_fstat64", "_fstatat64", "_fwrite", "_getcwd",
     "_getpid", "_getrlimit", "_issetugid", "_kevent", "_kill", "_kqueue", "_lseek",
     "_lstat64", "_mach_absolute_time", "_mach_timebase_info", "_madvise", "_malloc",
-    "_memcpy", "_mmap", "_munmap", "_nanosleep", "_notify_is_valid_token", "_open",
+    "_memcpy", "_memset", "_mmap", "_munmap", "_nanosleep", "_notify_is_valid_token", "_open",
     "_pthread_attr_destroy", "_pthread_attr_getstacksize", "_pthread_attr_init",
     "_pthread_attr_setdetachstate", "_pthread_attr_setstacksize", "_pthread_cond_broadcast",
     "_pthread_cond_init", "_pthread_cond_signal", "_pthread_cond_timedwait_relative_np",
@@ -26,6 +26,6 @@
     "host_recipe": "scripts/build.py",
     "go_source": "https://go.googlesource.com/go/+/refs/tags/go1.27.0/src/runtime/cgo/",
     "public_api": "https://opensource.apple.com/source/Libc/",
-    "method": "Unresolved external symbols in the current-source x86_64 host archive, excluding symbols resolved by the archive or Roc application; checked against Go runtime/cgo source and validated by native arm64 CI."
+    "method": "Unresolved external symbols in the current-source x86_64 host archive and Roc application; checked against Go runtime/cgo source and validated by cross-linking plus native arm64 CI."
   }
 }
