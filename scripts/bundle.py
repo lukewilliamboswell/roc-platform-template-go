@@ -47,17 +47,16 @@ TARGET_INPUTS = {
     "arm64v1musl": ("crt1.o", "libhost.a", "libc.a", "libzigc.a", "libcompiler_rt.a"),
     "x64mingw": MINGW_INPUTS,
     "x64v1mingw": MINGW_INPUTS,
-    "arm64mingw": MINGW_INPUTS,
-    "arm64v1mingw": MINGW_INPUTS,
 }
 PLATFORM_SUPPORT_INPUTS = ("targets/macos-sysroot/usr/lib/libSystem.tbd",)
 
 
 def bundle_inputs() -> list[Path]:
     from fetch_runtime import verify_installed
+    metadata_dir = PLATFORM / "linker-inputs"
     verify_installed()
     inputs = sorted(PLATFORM.glob("*.roc"))
-    inputs.extend(sorted(path for path in (PLATFORM / "runtime").rglob("*")
+    inputs.extend(sorted(path for path in metadata_dir.rglob("*")
                          if path.is_file() and path.name != "receipt.json"))
     missing: list[Path] = []
     for target, filenames in TARGET_INPUTS.items():

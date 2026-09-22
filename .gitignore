@@ -16,6 +16,7 @@ platform/targets/*/host.lib
 platform/targets/*/host.h
 
 /.runtime-cache/
+/.linker-inputs-cache/
 /platform/runtime/
 
 /platform/targets/

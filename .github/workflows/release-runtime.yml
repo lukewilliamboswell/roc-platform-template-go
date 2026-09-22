@@ -8,13 +8,13 @@ on:
         default: false
         required: true
       expected_sha:
-        description: Exact branch commit requested by the trusted publisher
+        description: Exact PR branch commit requested by the trusted publisher
         type: string
         required: false
 permissions:
   contents: read
 concurrency:
-  group: link-inputs-${{ github.ref }}
+  group: linker-input-candidate-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   build:
@@ -27,34 +27,38 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: {persist-credentials: false}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
-        with: {python-version: '3.13'}
-      - run: python scripts/install_runtime_zig.py
-      - run: python scripts/vendor_zig_runtime.py --output-dir ci-output/runtime-targets
-      # The embedded version is compatibility metadata; release identity is the manifest hash.
-      - run: python scripts/package_runtime.py --targets-dir ci-output/runtime-targets --output-dir ci-output/runtime-dist --version 0.1.0
+        with: {python-version: "3.13"}
+      - name: Install checksum-pinned Zig and verify source notices
+        run: python scripts/install_runtime_zig.py
+      - name: Build aggregate Linux, Windows, and macOS linker inputs
+        run: python scripts/vendor_zig_runtime.py --output-dir ci-output/linker-input-targets
+      - name: Package deterministic candidate
+        run: python scripts/package_runtime.py --targets-dir ci-output/linker-input-targets --output-dir ci-output/linker-input-dist --version 0.1.0
       - run: git diff --exit-code
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: runtime-${{ matrix.replica }}
-          path: ci-output/runtime-dist
+          name: linker-inputs-${{ matrix.replica }}
+          path: ci-output/linker-input-dist
           if-no-files-found: error
+          retention-days: 30
   reproduce:
     needs: build
     runs-on: ubuntu-22.04
-    outputs: {sha256: '${{ steps.compare.outputs.sha256 }}'}
+    outputs: {sha256: "${{ steps.compare.outputs.sha256 }}"}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with: {pattern: 'runtime-*', path: replicas}
+        with: {pattern: "linker-inputs-*", path: replicas}
       - id: compare
-        run: python scripts/runtime_release.py --left replicas/runtime-a --right replicas/runtime-b
+        run: python scripts/runtime_release.py compare --left replicas/linker-inputs-a --right replicas/linker-inputs-b
   validate:
     needs: reproduce
     uses: ./.github/workflows/ci.yml
     with:
-      runtime_candidate_artifact: runtime-a
+      runtime_candidate_artifact: linker-inputs-a
       runtime_candidate_sha256: ${{ needs.reproduce.outputs.sha256 }}
-  assemble:
+  candidate:
     needs: [reproduce, validate]
     runs-on: ubuntu-24.04
     permissions: {contents: read, id-token: write, attestations: write}
@@ -63,13 +67,17 @@ jobs:
         with: {persist-credentials: false}
       - name: Admit the publisher's exact request
         if: inputs.release_candidate
-        env: {EXPECTED_SHA: '${{ inputs.expected_sha }}'}
+        env: {EXPECTED_SHA: "${{ inputs.expected_sha }}"}
         run: test -n "$EXPECTED_SHA" && test "$EXPECTED_SHA" = "$GITHUB_SHA"
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with: {name: runtime-a, path: runtime-dist}
-      - run: python scripts/build_input_release.py --source runtime-dist --output release
+        with: {name: linker-inputs-a, path: linker-input-dist}
+      - run: python scripts/build_input_release.py --source linker-input-dist --output release
       - if: inputs.release_candidate
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
-        with: {subject-path: 'release/*'}
+        with: {subject-path: "release/*"}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with: {name: link-input-release, path: 'release/*', if-no-files-found: error}
+        with:
+          name: link-input-release
+          path: release/*
+          if-no-files-found: error
+          retention-days: 90

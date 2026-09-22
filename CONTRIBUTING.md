@@ -89,10 +89,11 @@ native executable test, not only an archive build.
 
 ## Runtime dependencies
 
-Runtime dependencies are released separately from Go hosts and platform packages.
-Follow [RUNTIME_PROVENANCE.md](RUNTIME_PROVENANCE.md) to review trusted source
-changes, publish a new runtime version, and update the consumer lock. Routine CI
-consumes the selected release; nightly pin updates do not regenerate runtimes.
+Linker inputs are released separately from Go hosts and platform packages.
+Follow [LINKER_INPUTS.md](LINKER_INPUTS.md) to review trusted source changes and
+publish a content-addressed PR build. The trusted publisher adds the reviewed
+lock; routine CI consumes that release and never regenerates these inputs.
+Nightly pin updates do not rebuild linker inputs.
 Use `python scripts/fetch_runtime.py` before building platform bundles.
 Keep license notices and source/SBOM inventory accurate. Never commit generated
 runtime or host binaries or overwrite an existing release.
@@ -100,7 +101,8 @@ runtime or host binaries or overwrite an existing release.
 ## Windows
 
 Go cgo archives use the MinGW ABI and must remain under Roc's `x64mingw`,
-`x64v1mingw`, `arm64mingw`, and `arm64v1mingw` target names. Do not relabel
+`x64v1mingw` target name. Windows ARM64 support is suspended until native
+execution is reliable. Do not relabel
 them as `x64win` or `arm64win`; those are MSVC targets with different startup,
 runtime, and linker requirements.
 

@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import subprocess
 
-from runtime_assets import (ROOT, REPO, WORKFLOW, MANIFEST, SOURCES, NOTICES, RUNTIME_PATHS,
+from runtime_assets import (ROOT, REPO, MANIFEST, SOURCES, NOTICES, MACOS_METADATA, RUNTIME_PATHS,
                             archive_name, component_for, json_bytes, sha256,
                             write_archive, read_archive)
 
@@ -20,7 +20,9 @@ def package(targets: Path, output: Path, version: str) -> Path:
     sources = json.loads((ROOT / "scripts/runtime_sources.json").read_text())
     files[SOURCES] = json_bytes(sources)
     for notice in NOTICES:
-        files[f"runtime/licenses/{notice}"] = (ROOT / "licenses" / notice).read_bytes()
+        files[f"linker-inputs/licenses/{notice}"] = (ROOT / "licenses" / notice).read_bytes()
+    for path in MACOS_METADATA:
+        files[path] = (ROOT / path).read_bytes()
     manifest = {"format": 1, "version": version, "source_commit": commit,
                 "files": {path: hashlib.sha256(data).hexdigest() for path, data in files.items()}}
     files[MANIFEST] = json_bytes(manifest)
@@ -31,22 +33,31 @@ def package(targets: Path, output: Path, version: str) -> Path:
     sbom = {
         "spdxVersion": "SPDX-2.3", "dataLicense": "CC0-1.0", "SPDXID": "SPDXRef-DOCUMENT",
         "name": name,
-        "documentNamespace": f"https://github.com/{REPO}/runtime-sbom/{digest}",
-        "creationInfo": {"creators": ["Tool: roc-go-package-runtime-1"],
+        "documentNamespace": f"https://github.com/{REPO}/linker-inputs-sbom/{digest}",
+        "creationInfo": {"creators": ["Tool: roc-go-package-linker-inputs-1"],
                          "created": datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")},
-        "packages": [{"SPDXID": "SPDXRef-archive", "name": "roc-go-runtimes", "versionInfo": version,
-                      "downloadLocation": f"https://github.com/{REPO}/releases/download/runtime-v{version}/{name}",
+        "packages": [{"SPDXID": "SPDXRef-archive", "name": "roc-go-linker-inputs", "versionInfo": version,
+                      "downloadLocation": f"https://github.com/{REPO}/releases/download/linker-inputs-v{version}/{name}",
                       "filesAnalyzed": False, "licenseConcluded": "NOASSERTION", "licenseDeclared": "NOASSERTION",
                       "copyrightText": "NOASSERTION", "checksums": [{"algorithm": "SHA256", "checksumValue": digest}]}],
         "files": [],
         "relationships": [{"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-archive"}],
     }
     for key, component in sources["components"].items():
+        if component["source"] == "zig-distribution":
+            download_location = sources["zig"]["url"]
+            distribution_sha256 = sources["zig"]["sha256"]
+        elif component["source"] == "repository":
+            download_location = f"https://github.com/{REPO}/tree/{commit}/linker-inputs/macos"
+            distribution_sha256 = None
+        else:
+            raise ValueError(f"Unknown component source: {component['source']}")
         sbom["packages"].append({
             "SPDXID": f"SPDXRef-{key}", "name": component["name"], "versionInfo": component["version"],
-            "downloadLocation": sources["zig"]["url"], "filesAnalyzed": False,
+            "downloadLocation": download_location, "filesAnalyzed": False,
             "licenseConcluded": "NOASSERTION", "licenseDeclared": component["license"], "copyrightText": "NOASSERTION",
-            "sourceInfo": json.dumps({"distribution_sha256": sources["zig"]["sha256"],
+            "sourceInfo": json.dumps({"distribution_sha256": distribution_sha256,
+                                      "source": component["source"],
                                       "paths": component["source_paths"], "notes": component["notes"]}, sort_keys=True),
         })
         sbom["relationships"].append({"spdxElementId": "SPDXRef-archive", "relationshipType": "CONTAINS", "relatedSpdxElement": f"SPDXRef-{key}"})
@@ -58,13 +69,31 @@ def package(targets: Path, output: Path, version: str) -> Path:
         sbom["relationships"].append({"spdxElementId": "SPDXRef-archive", "relationshipType": "CONTAINS", "relatedSpdxElement": file_id})
         if path in RUNTIME_PATHS:
             sbom["relationships"].append({"spdxElementId": file_id, "relationshipType": "GENERATED_FROM", "relatedSpdxElement": f"SPDXRef-{component_for(path)}"})
-    sbom_path = output / "runtime.spdx.json"
+    sbom_path = output / "linker-inputs.spdx.json"
     sbom_path.write_bytes(json_bytes(sbom))
-    (output / "SHA256SUMS").write_text(f"{digest}  {name}\n{sha256(sbom_path)}  runtime.spdx.json\n")
-    lock = {"format": 1, "version": version, "sha256": digest, "source_commit": commit,
-            "signer_digest": commit, "repository": REPO, "signer_workflow": WORKFLOW,
-            "source_ref": "refs/heads/main"}
-    (output / "runtime-release.json").write_bytes(json_bytes(lock))
+    sums = output / "SHA256SUMS"
+    sums.write_text(f"{digest}  {name}\n{sha256(sbom_path)}  linker-inputs.spdx.json\n")
+    fingerprint = hashlib.sha256(json_bytes({
+        "sources": sources,
+        "catalog": json.loads((ROOT / "linker-inputs/macos/interfaces.json").read_text()),
+        "recipe": hashlib.sha256((ROOT / "scripts/vendor_zig_runtime.py").read_bytes()).hexdigest(),
+    })).hexdigest()
+    dependency = {
+        "schema_version": 1,
+        "release_tag": f"linker-inputs-v{version}",
+        "source": {"repository": REPO, "commit": commit, "ref": "refs/heads/main"},
+        "input_fingerprint": fingerprint,
+        "targets": sorted({path.split("/")[1] for path in RUNTIME_PATHS if path.startswith("targets/")}),
+        "dependencies": sources["components"],
+        "license_summary": "See linker-inputs.spdx.json and the notices inside the archive.",
+        "assets": [
+            {"name": name, "sha256": digest, "size": archive.stat().st_size, "role": "linker-input-archive", "media_type": "application/gzip"},
+            {"name": "linker-inputs.spdx.json", "sha256": sha256(sbom_path), "size": sbom_path.stat().st_size, "role": "sbom", "media_type": "application/spdx+json"},
+            {"name": "SHA256SUMS", "sha256": sha256(sums), "size": sums.stat().st_size, "role": "checksums", "media_type": "text/plain"},
+        ],
+    }
+    # dependency.json is the controller manifest, so it cannot self-hash.
+    (output / "dependency.json").write_bytes(json_bytes(dependency))
     print(f"{archive}: {digest}")
     return archive
 

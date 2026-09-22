@@ -8,7 +8,7 @@ The files below are supplied as static-link inputs in the runtime release and in
 - `libcompiler_rt.a`: compiler runtime emitted by Zig 0.16.0
 
 The MinGW targets under
-`platform/targets/{x64mingw,x64v1mingw,arm64mingw,arm64v1mingw}/` contain:
+`platform/targets/{x64mingw,x64v1mingw}/` contain:
 
 - `crt2.obj` and `libmingw32.lib`: mingw-w64 startup and C runtime support
 - `zigc.lib` and `compiler_rt.lib`: Zig libc and compiler runtime support

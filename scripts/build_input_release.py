@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Package the tested runtime archive for content-addressed PR publication."""
-import argparse, hashlib, json, os, shutil, subprocess
+import argparse, hashlib, io, json, os, subprocess, tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INPUTS = ("licenses", "scripts/runtime_sources.json", "scripts/runtime_bootstrap.sha256",
           "scripts/install_runtime_zig.py", "scripts/vendor_zig_runtime.py",
           "scripts/package_runtime.py", "scripts/runtime_assets.py", "scripts/build_input_release.py",
+          "scripts/build_macos_interface.py", "linker-inputs/macos",
           ".github/workflows/release-runtime.yml")
 
 def fingerprint():
@@ -17,11 +18,19 @@ def fingerprint():
 
 def prepare(source: Path, output: Path):
     output.mkdir(parents=True, exist_ok=False)
-    archives = list(source.glob("roc-go-runtimes-*.tar.gz"))
+    archives = list(source.glob("roc-go-linker-inputs-*.tar.gz"))
     if len(archives) != 1:
-        raise ValueError("expected exactly one tested runtime archive")
+        raise ValueError("expected exactly one tested linker-input archive")
     asset = output / "link-inputs-all.tar"
-    shutil.copyfile(archives[0], asset)
+    # The publisher contract requires a genuine .tar asset. Repack the tested
+    # gzip transport without changing its member bytes or metadata.
+    with tarfile.open(archives[0], "r:gz") as source_tar, tarfile.open(
+            asset, "w", format=tarfile.USTAR_FORMAT) as output_tar:
+        for member in source_tar:
+            stream = source_tar.extractfile(member)
+            if not member.isfile() or stream is None:
+                raise ValueError("tested linker-input archive contains a non-file member")
+            output_tar.addfile(member, io.BytesIO(stream.read()))
     identity = {"repository": os.environ["GITHUB_REPOSITORY"], "sha": os.environ["GITHUB_SHA"],
                 "ref": os.environ["GITHUB_REF"],
                 "workflow": os.environ["GITHUB_REPOSITORY"] + "/.github/workflows/release-runtime.yml",
