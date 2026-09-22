@@ -7,20 +7,48 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
 import urllib.request
 
+from build_input_release import fingerprint as input_fingerprint
 from runtime_assets import (ROOT, REPO, WORKFLOW, MANIFEST, RUNTIME_PATHS, PAYLOAD_PATHS,
                             SHA, COMMIT, archive_name, json_bytes, read_archive, sha256)
 
 LOCK = ROOT / "scripts/runtime_release.json"
+CONTENT_LOCK = ROOT / "link-inputs.lock.json"
 PROVENANCE = "https://slsa.dev/provenance/v1"
 SBOM_TYPE = "https://spdx.dev/Document/v2.3"
 
 
 def load_lock(path: Path = LOCK) -> dict:
+    if path == LOCK and CONTENT_LOCK.is_file():
+        value = json.loads(CONTENT_LOCK.read_text())
+        record = value.get("targets", {}).get("all", {})
+        source = value.get("source", {})
+        manifest = value.get("manifest", {})
+        if (set(value) != {"schema_version", "kind", "repository", "release", "manifest", "source", "targets"}
+                or value.get("schema_version") != 1 or value.get("kind") != "roc-go-link-inputs"
+                or value.get("repository") != REPO or set(value.get("targets", {})) != {"all"}
+                or not isinstance(value.get("release"), str)
+                or not re.fullmatch(r"link-inputs-sha256-[0-9a-f]{64}", value["release"])
+                or not isinstance(manifest, dict) or set(manifest) != {"asset", "sha256"}
+                or manifest.get("asset") != "build-input-release.json" or not SHA.fullmatch(manifest.get("sha256", ""))
+                or not isinstance(source, dict)
+                or set(source) != {"repository", "sha", "ref", "workflow", "input_fingerprint"}
+                or source.get("repository") != REPO or not isinstance(source.get("ref"), str)
+                or not source["ref"].startswith("refs/heads/")
+                or record.get("asset") != "link-inputs-all.tar" or not SHA.fullmatch(record.get("sha256", ""))
+                or set(record) != {"asset", "sha256", "size"}
+                or not isinstance(record.get("size"), int) or isinstance(record.get("size"), bool) or record["size"] <= 0
+                or source.get("workflow") != f"{REPO}/{WORKFLOW}" or not COMMIT.fullmatch(source.get("sha", ""))
+                or source.get("input_fingerprint") != input_fingerprint()):
+            raise ValueError("Invalid content-addressed linker-input lock")
+        return {"format": 2, "repository": REPO, "release": value["release"],
+                "asset": record["asset"], "sha256": record["sha256"], "size": record["size"],
+                "source_commit": source["sha"], "source_ref": source["ref"]}
     lock = json.loads(path.read_text())
     expected = {"format", "version", "sha256", "source_commit", "signer_digest", "repository", "signer_workflow", "source_ref"}
     if (set(lock) != expected or lock["format"] != 1 or lock["repository"] != REPO
@@ -124,7 +152,8 @@ def verify_installed(platform: Path = ROOT / "platform", lock_path: Path = LOCK)
     manifest = json.loads((platform / MANIFEST).read_text())
     if receipt.get("sha256") != expected_digest or set(manifest.get("files", {})) != PAYLOAD_PATHS:
         raise ValueError("Installed runtime does not match the selected release")
-    if lock and (manifest["source_commit"] != lock["source_commit"] or manifest["version"] != lock["version"]):
+    if lock and (manifest["source_commit"] != lock["source_commit"]
+                 or (lock["format"] == 1 and manifest["version"] != lock["version"])):
         raise ValueError("Installed runtime metadata differs from lock")
     for name, expected in manifest["files"].items():
         path = platform / name
@@ -142,7 +171,8 @@ def verify_installed(platform: Path = ROOT / "platform", lock_path: Path = LOCK)
     # Compare installed metadata and bytes with the original authenticated archive
     # on every bundle, so editing the manifest/receipt cannot bless modified files.
     cache = ROOT / ".runtime-cache" / expected_digest
-    archive = cache / archive_name(manifest["version"])
+    archive_file = lock.get("asset") if lock else None
+    archive = cache / (archive_file or archive_name(manifest["version"]))
     if sha256(archive) != expected_digest:
         raise ValueError("Cached runtime archive checksum mismatch")
     _, original = read_archive(archive)
@@ -156,6 +186,18 @@ def fetch() -> None:
     lock = load_lock()
     cache = ROOT / ".runtime-cache" / lock["sha256"]
     cache.mkdir(parents=True, exist_ok=True)
+    if lock["format"] == 2:
+        archive = cache / lock["asset"]
+        valid = (archive.is_file() and archive.stat().st_size == lock["size"]
+                 and sha256(archive) == lock["sha256"])
+        if not valid:
+            archive.unlink(missing_ok=True)
+            download(f"https://github.com/{REPO}/releases/download/{lock['release']}/{lock['asset']}", archive)
+        if archive.stat().st_size != lock["size"] or sha256(archive) != lock["sha256"]:
+            raise ValueError("Cached linker-input archive differs from its reviewed content hash")
+        install(archive, lock["sha256"], ROOT / "platform")
+        verify_installed(ROOT / "platform")
+        return
     base = f"https://github.com/{REPO}/releases/download/runtime-v{lock['version']}"
     for name in [archive_name(lock["version"]), "runtime.spdx.json", "provenance.sigstore.json", "sbom.sigstore.json"]:
         destination = cache / name

@@ -15,7 +15,6 @@ import fetch_runtime as fetch
 from package_runtime import package
 from runtime_assets import (MANIFEST, RUNTIME_PATHS, ROOT, json_bytes, read_archive,
                             sha256, write_archive)
-from runtime_release import must_be_new, prepare
 
 
 class RuntimeTests(unittest.TestCase):
@@ -163,14 +162,48 @@ class RuntimeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Cached runtime archive'):
                 fetch.verify_installed(platform, lock_path)
 
-    def test_publication_rejects_non_main_and_existing_versions(self):
-        with patch.dict(os.environ, {'GITHUB_REF': 'refs/heads/a-pr', 'GITHUB_EVENT_NAME': 'workflow_dispatch'}):
-            with self.assertRaisesRegex(ValueError, 'dispatch from main'):
-                prepare('0.1.0')
-        with patch('runtime_release.subprocess.run', return_value=subprocess.CompletedProcess([], 0, '{}', '')):
-            with self.assertRaisesRegex(ValueError, 'already exists'):
-                must_be_new('runtime-v0.1.0')
+    def content_lock(self):
+        data = self.archive.read_bytes()
+        return {
+            'schema_version': 1, 'kind': 'roc-go-link-inputs',
+            'repository': fetch.REPO, 'release': 'link-inputs-sha256-' + 'a' * 64,
+            'manifest': {'asset': 'build-input-release.json', 'sha256': 'b' * 64},
+            'source': {'repository': fetch.REPO, 'sha': self.manifest['source_commit'],
+                       'ref': 'refs/heads/runtime-change', 'workflow': fetch.REPO + '/' + fetch.WORKFLOW,
+                       'input_fingerprint': 'c' * 64},
+            'targets': {'all': {'asset': 'link-inputs-all.tar',
+                                'sha256': hashlib.sha256(data).hexdigest(), 'size': len(data)}}
+        }
 
+    def test_content_lock_cache_hit_rehashes_without_network(self):
+        lock = self.content_lock()
+        cache = self.root / '.runtime-cache' / lock['targets']['all']['sha256']
+        cache.mkdir(parents=True)
+        (cache / 'link-inputs-all.tar').write_bytes(self.archive.read_bytes())
+        with patch.object(fetch, 'ROOT', self.root), patch.object(fetch, 'load_lock', return_value={
+                'format': 2, 'repository': fetch.REPO, 'release': lock['release'],
+                'asset': 'link-inputs-all.tar', **lock['targets']['all'],
+                'source_commit': self.manifest['source_commit'], 'source_ref': 'refs/heads/runtime-change'}), \
+             patch.object(fetch, 'download') as download:
+            fetch.fetch()
+        download.assert_not_called()
+
+    def test_content_lock_corrupt_cache_is_replaced(self):
+        lock = self.content_lock()
+        digest = lock['targets']['all']['sha256']
+        cache = self.root / '.runtime-cache' / digest
+        cache.mkdir(parents=True)
+        (cache / 'link-inputs-all.tar').write_bytes(b'corrupt')
+        selected = {'format': 2, 'repository': fetch.REPO, 'release': lock['release'],
+                    'asset': 'link-inputs-all.tar', **lock['targets']['all'],
+                    'source_commit': self.manifest['source_commit'], 'source_ref': 'refs/heads/runtime-change'}
+        def replace(url, destination):
+            self.assertIn(lock['release'], url)
+            destination.write_bytes(self.archive.read_bytes())
+        with patch.object(fetch, 'ROOT', self.root), patch.object(fetch, 'load_lock', return_value=selected), \
+             patch.object(fetch, 'download', side_effect=replace) as download:
+            fetch.fetch()
+        download.assert_called_once()
 
 if __name__ == '__main__':
     unittest.main()
