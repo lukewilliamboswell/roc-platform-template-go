@@ -4,7 +4,7 @@
   "install_name": "/usr/lib/libSystem.B.dylib",
   "selection": "External symbols audited from the x86_64 Go 1.27 c-archive host and Roc application, plus the Mach-O lazy-binding entry point required by the linker; the runtime/cgo API set is architecture-neutral and the arm64 interface is accepted only after native arm64 CI. Review whenever the host, Roc application, linker, or pinned Go release changes.",
   "symbols": [
-    "___error", "___memcpy_chk", "___stderrp", "___stdinp", "_abort",
+    "___bzero", "___error", "___memcpy_chk", "___stderrp", "___stdinp", "_abort",
     "_arc4random_buf", "_clock_gettime", "_close", "_closedir", "_dup", "_dup2",
     "_execve", "_exit", "_fcntl", "_fdopendir$INODE64", "_ferror", "_fgetc",
     "_fprintf", "_fputc", "_free", "_fstat64", "_fstatat64", "_fwrite", "_getcwd",
