@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import re
 import subprocess
 from pathlib import Path
@@ -53,12 +52,8 @@ PLATFORM_SUPPORT_INPUTS = ("targets/macos-sysroot/usr/lib/libSystem.tbd",)
 
 
 def bundle_inputs() -> list[Path]:
-    if os.environ.get("LINKER_INPUTS_CANDIDATE_SHA256"):
-        from fetch_runtime import verify_installed
-        metadata_dir = PLATFORM / "linker-inputs"
-    else:
-        from fetch_legacy_runtime import verify_installed
-        metadata_dir = PLATFORM / "runtime"
+    from fetch_runtime import verify_installed
+    metadata_dir = PLATFORM / "linker-inputs"
     verify_installed()
     inputs = sorted(PLATFORM.glob("*.roc"))
     inputs.extend(sorted(path for path in metadata_dir.rglob("*")

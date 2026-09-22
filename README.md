@@ -29,9 +29,9 @@ roc examples/hello_world/main.roc
 
 Expected output: `Hello, World!`
 
-Examples currently use the local platform. The published
-[runtime 0.1.0 release](https://github.com/lukewilliamboswell/roc-platform-template-go/releases/tag/runtime-v0.1.0)
-contains third-party runtime and linker inputs; a complete platform release
+Examples currently use the local platform. The independently published,
+authenticated linker-input release contains the redistributable third-party
+linker inputs; a complete platform release
 containing the Go hosts has not been published yet. See the
 [platform release checklist](CONTRIBUTING.md#release-checklist).
 
@@ -64,15 +64,15 @@ The public API is `Stdin.line!`, `Stdout.line!`, and `Stderr.line!`. ABI changes
 C header generation, test conventions, and release instructions are documented
 in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Runtime dependencies
+## Linker-input dependencies
 
-Runtime binaries are release assets and are not tracked in the source tree.
-[`scripts/runtime_release.json`](scripts/runtime_release.json) pins the runtime
-version, archive digest, and signing/source identities. The fetcher verifies
+Linker inputs are release assets and are not tracked in the source tree.
+[`linker-inputs.lock.json`](linker-inputs.lock.json) pins the release version,
+archive digest, and signing/source identities. The fetcher verifies
 provenance and SBOM attestations, the archive checksum, and the complete file
 inventory before installing inputs under `platform/targets/`.
 
-Runtime releases are built independently from the checksum-pinned sources in
+Linker-input releases are built independently from the checksum-pinned sources in
 [`scripts/runtime_sources.json`](scripts/runtime_sources.json). Two clean CI
 builds must produce identical archives and SBOMs, and the full platform test
 matrix must pass before signing and immutable publication. Routine platform
@@ -91,10 +91,10 @@ Every target uses a Go `libhost.a` built from this repository.
 
 | Roc targets | Runtime and linker inputs |
 | --- | --- |
-| `x64mac`, `arm64mac` | Darwin text link interface from the runtime release; macOS supplies the runtime |
-| `x64musl`, `x64v1musl` | Zig/musl inputs from the runtime release |
-| `arm64musl`, `arm64v1musl` | Zig/musl inputs from the runtime release |
-| `x64mingw`, `x64v1mingw` | Zig/mingw-w64 and Windows import inputs from the runtime release |
+| `x64mac`, `arm64mac` | Project-authored Darwin text link interface from the linker-input release; macOS supplies the runtime |
+| `x64musl`, `x64v1musl` | Zig/musl inputs from the linker-input release |
+| `arm64musl`, `arm64v1musl` | Zig/musl inputs from the linker-input release |
+| `x64mingw`, `x64v1mingw` | Zig/mingw-w64 and Windows import inputs from the linker-input release |
 
 The `v1` variants use Roc's baseline CPU feature sets. Go's cgo toolchain uses
 the MinGW ABI on Windows; Roc's `x64win` and `arm64win` MSVC targets are
@@ -109,7 +109,7 @@ applications for all ten targets. Eight native consumer targets run all 27
 behavioral cases against every producer's output.
 
 Artifact manifests record the compiler version, target, application checksums,
-platform bundle digest, and runtime archive digest. CI also checks Go units,
+platform bundle digest, and linker-input archive digest. CI also checks Go units,
 generated C bindings, Roc formatting, documentation, and the tracked-binary policy.
 
 Compiler pins live in the `roc` headers selected by
