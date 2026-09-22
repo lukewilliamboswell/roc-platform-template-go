@@ -39,8 +39,11 @@ def json_bytes(value: object) -> bytes:
 
 
 def sha256(path: Path) -> str:
+    hasher = hashlib.sha256()
     with path.open("rb") as stream:
-        return hashlib.file_digest(stream, "sha256").hexdigest()
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            hasher.update(chunk)
+    return hasher.hexdigest()
 
 
 def archive_name(version: str) -> str:
