@@ -44,13 +44,20 @@ def package(targets: Path, output: Path, version: str) -> Path:
         "relationships": [{"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-archive"}],
     }
     for key, component in sources["components"].items():
-        download_location = (sources["zig"]["url"] if key != "darwin"
-                             else f"https://github.com/{REPO}/tree/{commit}/linker-inputs/macos")
+        if component["source"] == "zig-distribution":
+            download_location = sources["zig"]["url"]
+            distribution_sha256 = sources["zig"]["sha256"]
+        elif component["source"] == "repository":
+            download_location = f"https://github.com/{REPO}/tree/{commit}/linker-inputs/macos"
+            distribution_sha256 = None
+        else:
+            raise ValueError(f"Unknown component source: {component['source']}")
         sbom["packages"].append({
             "SPDXID": f"SPDXRef-{key}", "name": component["name"], "versionInfo": component["version"],
             "downloadLocation": download_location, "filesAnalyzed": False,
             "licenseConcluded": "NOASSERTION", "licenseDeclared": component["license"], "copyrightText": "NOASSERTION",
-            "sourceInfo": json.dumps({"distribution_sha256": sources["zig"]["sha256"] if key != "darwin" else None,
+            "sourceInfo": json.dumps({"distribution_sha256": distribution_sha256,
+                                      "source": component["source"],
                                       "paths": component["source_paths"], "notes": component["notes"]}, sort_keys=True),
         })
         sbom["relationships"].append({"spdxElementId": "SPDXRef-archive", "relationshipType": "CONTAINS", "relatedSpdxElement": f"SPDXRef-{key}"})
