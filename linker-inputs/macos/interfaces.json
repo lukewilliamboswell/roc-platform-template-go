@@ -2,7 +2,7 @@
   "format": 1,
   "targets": ["arm64-macos", "x86_64-macos"],
   "install_name": "/usr/lib/libSystem.B.dylib",
-  "selection": "External symbols audited from the x86_64 Go 1.27 c-archive host; the runtime/cgo API set is architecture-neutral and the arm64 interface is accepted only after native arm64 CI. Review whenever the host or pinned Go release changes.",
+  "selection": "External symbols audited from the x86_64 Go 1.27 c-archive host and Roc application, plus the Mach-O lazy-binding entry point required by the linker; the runtime/cgo API set is architecture-neutral and the arm64 interface is accepted only after native arm64 CI. Review whenever the host, Roc application, linker, or pinned Go release changes.",
   "symbols": [
     "___error", "___memcpy_chk", "___stderrp", "___stdinp", "_abort",
     "_arc4random_buf", "_clock_gettime", "_close", "_closedir", "_dup", "_dup2",
@@ -20,12 +20,12 @@
     "_pthread_sigmask", "_raise", "_read", "_readdir_r$INODE64", "_setenv", "_setrlimit",
     "_sigaction", "_sigaltstack", "_stat64", "_strerror", "_strlen", "_sysctl",
     "_sysctlbyname", "_unsetenv", "_usleep", "_vfprintf", "_write",
-    "_xpc_date_create_from_current"
+    "_xpc_date_create_from_current", "dyld_stub_binder"
   ],
   "evidence": {
     "host_recipe": "scripts/build.py",
     "go_source": "https://go.googlesource.com/go/+/refs/tags/go1.27.0/src/runtime/cgo/",
     "public_api": "https://opensource.apple.com/source/Libc/",
-    "method": "Unresolved external symbols in the current-source x86_64 host archive and Roc application; checked against Go runtime/cgo source and validated by cross-linking plus native arm64 CI."
+    "method": "Unresolved external symbols in the current-source x86_64 host archive and Roc application, including linker-required lazy binding support; checked against Go runtime/cgo source and validated by cross-linking plus native arm64 CI."
   }
 }
