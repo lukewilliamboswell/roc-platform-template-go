@@ -36,10 +36,14 @@ def main():
         for path in component["source_paths"]:
             if not (source_root / path).exists():
                 raise SystemExit(f"Missing declared source: {path}")
-        upstream = (source_root / component["source_notice"]).read_text().splitlines()
-        recorded = (ROOT / "licenses" / component["notice"]).read_text().splitlines()
-        if [line.rstrip() for line in upstream] != [line.rstrip() for line in recorded]:
-            raise SystemExit(f"License notice differs from trusted distribution: {component['notice']}")
+        source_notice = source_root / component["source_notice"]
+        if source == "zig-distribution":
+            upstream = source_notice.read_text().splitlines()
+            recorded = (ROOT / "licenses" / component["notice"]).read_text().splitlines()
+            if [line.rstrip() for line in upstream] != [line.rstrip() for line in recorded]:
+                raise SystemExit(f"License notice differs from trusted distribution: {component['notice']}")
+        elif not source_notice.is_file():
+            raise SystemExit(f"Missing repository provenance: {component['source_notice']}")
     with Path(os.environ["GITHUB_PATH"]).open("a") as stream:
         stream.write(f"{destination}\n")
 
