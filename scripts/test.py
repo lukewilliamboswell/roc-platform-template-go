@@ -645,6 +645,20 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def dependency_archive_sha256() -> str:
+    receipts = (
+        ROOT / "platform/linker-inputs/receipt.json",
+        ROOT / "platform/runtime/receipt.json",
+    )
+    for receipt in receipts:
+        if receipt.is_file():
+            digest = json.loads(receipt.read_text())["sha256"]
+            if isinstance(digest, str) and re.fullmatch(r"[0-9a-f]{64}", digest):
+                return digest
+            raise TestFailure(f"Invalid dependency receipt: {receipt}")
+    raise TestFailure("Missing linker-input or legacy runtime receipt")
+
+
 def write_artifact_manifest(
     target_dir: Path,
     target: str,
@@ -662,7 +676,7 @@ def write_artifact_manifest(
         "format": 2,
         "target": target,
         "platform_bundle_sha256": platform_bundle_sha256,
-        "runtime_archive_sha256": json.loads((ROOT / "platform/runtime/receipt.json").read_text())["sha256"],
+        "runtime_archive_sha256": dependency_archive_sha256(),
         "roc_version": subprocess.check_output(
             ["roc", "version"], text=True
         ).strip(),
