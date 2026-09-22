@@ -21,8 +21,6 @@ TARGETS = (
     "arm64v1musl",
     "x64mingw",
     "x64v1mingw",
-    "arm64mingw",
-    "arm64v1mingw",
 )
 
 

@@ -35,8 +35,6 @@ TARGETS = {
     "arm64v1musl": Target("linux", "arm64", "aarch64-linux-musl"),
     "x64mingw": Target("windows", "amd64", "x86_64-windows-gnu"),
     "x64v1mingw": Target("windows", "amd64", "x86_64-windows-gnu"),
-    "arm64mingw": Target("windows", "arm64", "aarch64-windows-gnu"),
-    "arm64v1mingw": Target("windows", "arm64", "aarch64-windows-gnu"),
 }
 
 
@@ -65,7 +63,9 @@ def native_target() -> str:
     if system == "Linux":
         return "arm64musl" if machine in {"arm64", "aarch64"} else "x64musl"
     if system == "Windows":
-        return "arm64mingw" if machine in {"arm64", "aarch64"} else "x64mingw"
+        if machine in {"arm64", "aarch64"}:
+            raise SystemExit("Windows ARM64 support is suspended until native execution is reliable")
+        return "x64mingw"
     raise SystemExit(f"Unsupported host platform: {system} {machine}")
 
 

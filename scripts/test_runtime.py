@@ -16,6 +16,7 @@ from package_runtime import package
 from runtime_assets import (MANIFEST, RUNTIME_PATHS, ROOT, json_bytes, read_archive,
                             sha256, write_archive)
 from runtime_release import must_be_new, prepare
+from build_macos_interface import read_catalog, render
 
 
 class RuntimeTests(unittest.TestCase):
@@ -31,16 +32,43 @@ class RuntimeTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             self.archive = package(targets, self.root / 'dist', '0.1.0')
         self.manifest, self.files = read_archive(self.archive)
-        self.lock = json.loads((self.archive.parent / 'runtime-release.json').read_text())
+        dependency = json.loads((self.archive.parent / 'dependency.json').read_text())
+        archive_asset = next(a for a in dependency['assets'] if a['role'] == 'linker-input-archive')
+        sbom_asset = next(a for a in dependency['assets'] if a['role'] == 'sbom')
+        raw_lock = {
+            'schema_version': 1,
+            'release_tag': dependency['release_tag'],
+            'archive': {key: archive_asset[key] for key in ('name', 'sha256', 'size')},
+            'sbom': {key: sbom_asset[key] for key in ('name', 'sha256', 'size')},
+            'source': dependency['source'],
+            'signer': {
+                'repository': 'lukewilliamboswell/roc-automation',
+                'workflow': '.github/workflows/publish-linker-inputs.yml',
+                'commit': '1' * 40,
+            },
+        }
+        lock_path = self.root / 'linker-inputs.lock.json'
+        self.raw_lock = raw_lock
+        lock_path.write_bytes(json_bytes(raw_lock))
+        self.lock = fetch.load_lock(lock_path)
 
     def test_archive_reproducibility_and_sbom_coverage(self):
         second = self.root / 'second.tar.gz'
         write_archive(second, dict(reversed(list(self.files.items()))))
         self.assertEqual(self.archive.read_bytes(), second.read_bytes())
-        sbom = json.loads((self.archive.parent / 'runtime.spdx.json').read_text())
+        sbom = json.loads((self.archive.parent / 'linker-inputs.spdx.json').read_text())
         self.assertEqual({f['fileName'] for f in sbom['files']}, {f'./{p}' for p in self.files})
         source_relations = [r for r in sbom['relationships'] if r['relationshipType'] == 'GENERATED_FROM']
         self.assertEqual(len(source_relations), len(RUNTIME_PATHS))
+
+    def test_project_authored_macos_interface_is_dual_arch_and_deterministic(self):
+        catalog = read_catalog()
+        generated = render(catalog)
+        self.assertEqual(generated, render(catalog))
+        self.assertIn(b'targets: [ arm64-macos, x86_64-macos ]', generated)
+        self.assertIn(b"install-name: '/usr/lib/libSystem.B.dylib'", generated)
+        self.assertNotIn(b'uuid', generated.lower())
+        self.assertNotIn(b'sdk-version', generated.lower())
 
     def test_rejects_unsafe_entries(self):
         for name, kind in [('../escape', tarfile.REGTYPE), ('/absolute', tarfile.REGTYPE),
@@ -77,7 +105,7 @@ class RuntimeTests(unittest.TestCase):
 
     def test_attestation_policy_uses_locked_identity(self):
         with patch.object(fetch.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '[{}]')) as run:
-            fetch.verify_attestation(self.archive, self.root / 'proof', self.lock, fetch.PROVENANCE)
+            fetch.verify_attestation(self.archive, self.lock, fetch.PROVENANCE)
         args = run.call_args.args[0]
         for key, value in [('--source-digest', self.lock['source_commit']),
                            ('--source-ref', 'refs/heads/main'), ('--signer-digest', self.lock['signer_digest']),
@@ -87,24 +115,25 @@ class RuntimeTests(unittest.TestCase):
         self.assertIn('--deny-self-hosted-runners', args)
         with patch.object(fetch.subprocess, 'run', side_effect=subprocess.CalledProcessError(1, ['gh'])):
             with self.assertRaises(subprocess.CalledProcessError):
-                fetch.verify_attestation(self.archive, self.root / 'proof', self.lock, fetch.SBOM_TYPE)
+                fetch.verify_attestation(self.archive, self.lock, fetch.PROVENANCE)
 
-    def test_release_verification_requires_both_predicates_and_matching_sbom(self):
-        document = json.loads((self.archive.parent / 'runtime.spdx.json').read_text())
-        verified = [{'verificationResult': {'statement': {'predicate': document}}}]
-        # The pinned signing action derives the predicate URI from spdxVersion.
-        def producer_verification(artifact, bundle, lock, predicate):
-            supported = {fetch.PROVENANCE, 'https://spdx.dev/Document/v' + document['spdxVersion'].split('-')[1]}
-            if predicate not in supported:
-                raise ValueError('No attestation with the requested predicate')
-            return verified
+    def test_release_verification_requires_provenance_and_matching_locked_sbom(self):
+        document = json.loads((self.archive.parent / 'linker-inputs.spdx.json').read_text())
+        def producer_verification(artifact, lock, predicate):
+            if predicate != fetch.PROVENANCE:
+                raise ValueError('Unexpected attestation predicate')
+            return [{}]
 
         with patch.object(fetch, 'verify_attestation', side_effect=producer_verification) as verify:
             self.assertEqual(fetch.verify_release(self.archive.parent, self.lock), self.archive)
-            self.assertEqual([c.args[3] for c in verify.call_args_list], [fetch.PROVENANCE, fetch.PROVENANCE, fetch.SBOM_TYPE])
-        with patch.object(fetch, 'verify_attestation', return_value=[{'verificationResult': {'statement': {'predicate': {}}}}]):
-            with self.assertRaisesRegex(ValueError, 'signed predicate'):
+            self.assertEqual([c.args[2] for c in verify.call_args_list], [fetch.PROVENANCE, fetch.PROVENANCE])
+        sbom = self.archive.parent / 'linker-inputs.spdx.json'
+        sbom.write_bytes(b'{}')
+        with patch.object(fetch, 'verify_attestation') as verify:
+            with self.assertRaisesRegex(ValueError, 'SBOM differs from lock'):
                 fetch.verify_release(self.archive.parent, self.lock)
+            verify.assert_not_called()
+        sbom.write_text(json.dumps(document))
         self.archive.write_bytes(b'tampered')
         with patch.object(fetch, 'verify_attestation') as verify:
             with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
@@ -112,11 +141,11 @@ class RuntimeTests(unittest.TestCase):
             verify.assert_not_called()
 
     def test_fetch_does_not_install_after_authentication_failure(self):
-        cache = self.root / '.runtime-cache' / self.lock['sha256']
+        cache = self.root / '.linker-inputs-cache' / self.lock['sha256']
         cache.mkdir(parents=True)
-        for name in [self.archive.name, 'runtime.spdx.json', 'provenance.sigstore.json', 'sbom.sigstore.json']:
+        for name in [self.archive.name, 'linker-inputs.spdx.json']:
             source = self.archive.parent / name
-            (cache / name).write_bytes(source.read_bytes() if source.exists() else b'invalid proof')
+            (cache / name).write_bytes(source.read_bytes())
         with patch.object(fetch, 'ROOT', self.root), \
              patch.object(fetch, 'load_lock', return_value=self.lock), \
              patch.object(fetch, 'verify_attestation', side_effect=ValueError('invalid proof')), \
@@ -143,8 +172,8 @@ class RuntimeTests(unittest.TestCase):
         platform = self.root / 'platform'
         fetch.install(self.archive, self.lock['sha256'], platform)
         lock_path = self.root / 'lock.json'
-        lock_path.write_bytes(json_bytes(self.lock))
-        cache = self.root / '.runtime-cache' / self.lock['sha256']
+        lock_path.write_bytes(json_bytes(self.raw_lock))
+        cache = self.root / '.linker-inputs-cache' / self.lock['sha256']
         cache.mkdir(parents=True)
         cached = cache / self.archive.name
         cached.write_bytes(self.archive.read_bytes())
@@ -160,7 +189,7 @@ class RuntimeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'authenticated archive'):
                 fetch.verify_installed(platform, lock_path)
             cached.write_bytes(b'bad cache')
-            with self.assertRaisesRegex(ValueError, 'Cached runtime archive'):
+            with self.assertRaisesRegex(ValueError, 'Cached linker-input archive'):
                 fetch.verify_installed(platform, lock_path)
 
     def test_publication_rejects_non_main_and_existing_versions(self):
@@ -169,7 +198,7 @@ class RuntimeTests(unittest.TestCase):
                 prepare('0.1.0')
         with patch('runtime_release.subprocess.run', return_value=subprocess.CompletedProcess([], 0, '{}', '')):
             with self.assertRaisesRegex(ValueError, 'already exists'):
-                must_be_new('runtime-v0.1.0')
+                must_be_new('linker-inputs-v0.1.0')
 
 
 if __name__ == '__main__':

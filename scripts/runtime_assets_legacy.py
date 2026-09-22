@@ -9,24 +9,27 @@ import re
 import tarfile
 from pathlib import Path, PurePosixPath
 
-from vendor_zig_runtime import TARGET_ARTIFACTS, DARWIN_SYSROOT
+from vendor_zig_runtime import DARWIN_SYSROOT
+
+# Historical runtime-v0.1.0 included Windows ARM64; retain its exact inventory
+# only while normal CI consumes that immutable release during migration.
+from vendor_zig_runtime import MUSL_ARTIFACTS, MINGW_ARTIFACTS
+TARGET_ARTIFACTS = {
+    **{target: MUSL_ARTIFACTS for target in ("x64musl", "x64v1musl", "arm64musl", "arm64v1musl")},
+    **{target: MINGW_ARTIFACTS for target in ("x64mingw", "x64v1mingw", "arm64mingw", "arm64v1mingw")},
+}
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = "lukewilliamboswell/roc-platform-template-go"
-WORKFLOW = f"{REPO}/.github/workflows/linker-inputs.yml"
-MANIFEST = "linker-inputs/dependency.json"
-SOURCES = "linker-inputs/sources.json"
+WORKFLOW = f"{REPO}/.github/workflows/release-runtime.yml"
+MANIFEST = "runtime/manifest.json"
+SOURCES = "runtime/sources.json"
 NOTICES = ("musl-COPYRIGHT", "zig-LICENSE", "mingw-w64-COPYING")
-MACOS_METADATA = (
-    "linker-inputs/macos/interfaces.json",
-    "linker-inputs/macos/PROVENANCE.md",
-)
 RUNTIME_PATHS = frozenset(
     f"targets/{target}/{name}"
     for target, names in TARGET_ARTIFACTS.items() for name in names
 ) | {f"targets/{DARWIN_SYSROOT.as_posix()}"}
-PAYLOAD_PATHS = (RUNTIME_PATHS | {SOURCES} | set(MACOS_METADATA)
-                 | {f"linker-inputs/licenses/{n}" for n in NOTICES})
+PAYLOAD_PATHS = RUNTIME_PATHS | {SOURCES} | {f"runtime/licenses/{n}" for n in NOTICES}
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_UNPACKED_BYTES = 256 * 1024 * 1024
 VERSION = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)")
@@ -45,8 +48,8 @@ def sha256(path: Path) -> str:
 
 def archive_name(version: str) -> str:
     if VERSION.fullmatch(version) is None:
-        raise ValueError("Linker-input version must be an exact numeric X.Y.Z")
-    return f"roc-go-linker-inputs-{version}.tar.gz"
+        raise ValueError("Runtime version must be an exact numeric X.Y.Z")
+    return f"roc-go-runtimes-{version}.tar.gz"
 
 
 def safe_path(name: str) -> bool:
@@ -71,7 +74,7 @@ def write_archive(destination: Path, files: dict[str, bytes]) -> None:
 
 def read_archive(archive: Path) -> tuple[dict, dict[str, bytes]]:
     if archive.stat().st_size > MAX_ARCHIVE_BYTES:
-        raise ValueError("Linker-input archive exceeds size limit")
+        raise ValueError("Runtime archive exceeds size limit")
     files = {}
     total = 0
     with tarfile.open(archive, "r:gz") as tar:
@@ -81,21 +84,21 @@ def read_archive(archive: Path) -> tuple[dict, dict[str, bytes]]:
                 raise ValueError(f"Unexpected or unsafe archive entry: {member.name}")
             total += member.size
             if total > MAX_UNPACKED_BYTES:
-                raise ValueError("Linker-input archive exceeds unpacked size limit")
+                raise ValueError("Runtime archive exceeds unpacked size limit")
             stream = tar.extractfile(member)
             if stream is None:
                 raise ValueError("Missing archive entry data")
             files[member.name] = stream.read()
     if set(files) != PAYLOAD_PATHS | {MANIFEST}:
-        raise ValueError("Linker-input archive inventory is incomplete")
+        raise ValueError("Runtime archive inventory is incomplete")
     manifest = json.loads(files[MANIFEST])
     if (manifest.get("format") != 1 or not VERSION.fullmatch(manifest.get("version", ""))
             or not COMMIT.fullmatch(manifest.get("source_commit", ""))
             or set(manifest.get("files", {})) != PAYLOAD_PATHS):
-        raise ValueError("Invalid linker-input manifest")
+        raise ValueError("Invalid runtime manifest")
     for name in PAYLOAD_PATHS:
         if hashlib.sha256(files[name]).hexdigest() != manifest["files"][name]:
-            raise ValueError(f"Linker-input checksum mismatch: {name}")
+            raise ValueError(f"Runtime checksum mismatch: {name}")
     return manifest, files
 
 

@@ -37,8 +37,6 @@ SUPPORTED_TARGETS = (
     "arm64v1musl",
     "x64mingw",
     "x64v1mingw",
-    "arm64mingw",
-    "arm64v1mingw",
 )
 TARGET_PLATFORMS = {
     "x64mac": "macos",
@@ -49,15 +47,11 @@ TARGET_PLATFORMS = {
     "arm64v1musl": "linux",
     "x64mingw": "windows",
     "x64v1mingw": "windows",
-    "arm64mingw": "windows",
-    "arm64v1mingw": "windows",
 }
 KNOWN_PLATFORMS = frozenset({"linux", "macos", "windows"})
 WINDOWS_MACHINE_TYPES = {
     "x64mingw": 0x8664,
     "x64v1mingw": 0x8664,
-    "arm64mingw": 0xAA64,
-    "arm64v1mingw": 0xAA64,
 }
 APP_KEYS = frozenset(
     {"path", "enabled", "stages", "skip_reasons", "platforms", "cases", "build_args"}

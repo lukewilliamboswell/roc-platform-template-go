@@ -34,13 +34,13 @@
       "notes": "Version from bundled _mingw_mac.h. Per-file license exceptions are covered by the bundled notice. Import archives describe Windows DLL interfaces; no Windows DLL implementation is shipped."
     },
     "darwin": {
-      "name": "Darwin libSystem interface metadata",
-      "version": "zig-0.16.0",
-      "license": "NOASSERTION",
-      "source_paths": ["lib/libc/darwin/libSystem.tbd"],
-      "notice": "zig-LICENSE",
-      "source_notice": "LICENSE",
-      "notes": "Text-only interface stub supplied by Zig; no Apple runtime implementation is shipped."
+      "name": "Project-authored Darwin libSystem interface metadata",
+      "version": "1",
+      "license": "LicenseRef-Linkage-Metadata",
+      "source_paths": ["linker-inputs/macos/interfaces.json", "scripts/build_macos_interface.py"],
+      "notice": "PROVENANCE.md",
+      "source_notice": "linker-inputs/macos/PROVENANCE.md",
+      "notes": "Generated from the reviewed project symbol catalog without reading or redistributing Apple SDK, binary, framework, or TBD bytes."
     }
   }
 }

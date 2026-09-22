@@ -1,0 +1,125 @@
+name: Release linker inputs
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "New independent linker-input version (X.Y.Z)"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-linker-inputs
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.prepare.outputs.version }}
+      archive: ${{ steps.prepare.outputs.archive }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: python3 scripts/runtime_release.py prepare --version "$RELEASE_VERSION"
+
+  build:
+    needs: prepare
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [a, b]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.13"
+      - name: Install checksum-pinned Zig and verify notices
+        run: python scripts/install_runtime_zig.py
+      - name: Build external linker inputs from reviewed sources
+        run: python scripts/vendor_zig_runtime.py --output-dir ci-output/linker-input-targets
+      - name: Package deterministic archive and SPDX inventory
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: python scripts/package_runtime.py --targets-dir ci-output/linker-input-targets --output-dir ci-output/linker-input-dist --version "$RELEASE_VERSION"
+      - name: Ensure generation did not modify source
+        run: git diff --exit-code
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: linker-inputs-${{ matrix.replica }}
+          path: ci-output/linker-input-dist
+          if-no-files-found: error
+          retention-days: 30
+
+  reproduce:
+    needs: build
+    runs-on: ubuntu-22.04
+    outputs:
+      sha256: ${{ steps.compare.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: linker-inputs-*
+          path: replicas
+      - id: compare
+        run: python scripts/runtime_release.py compare --left replicas/linker-inputs-a --right replicas/linker-inputs-b
+
+  validate:
+    needs: reproduce
+    uses: ./.github/workflows/ci.yml
+    with:
+      runtime_candidate_artifact: linker-inputs-a
+      runtime_candidate_sha256: ${{ needs.reproduce.outputs.sha256 }}
+
+  candidate:
+    needs: [prepare, reproduce, validate]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: linker-inputs-a
+          path: release-assets
+      - name: Confirm validated archive identity
+        env:
+          ARCHIVE: ${{ needs.prepare.outputs.archive }}
+          EXPECTED_SHA256: ${{ needs.reproduce.outputs.sha256 }}
+        run: echo "$EXPECTED_SHA256  release-assets/$ARCHIVE" | sha256sum --check --strict
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: linker-inputs-release
+          path: release-assets
+          if-no-files-found: error
+          retention-days: 90
+
+  # SECURITY: the shared workflow is pinned to a reviewed commit. Never use a
+  # branch or tag for this trust boundary.
+  publish:
+    needs: [prepare, candidate]
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    uses: lukewilliamboswell/roc-automation/.github/workflows/publish-linker-inputs.yml@714fa0c68b4327ea097ae1b05d13c56769a1c3ed
+    with:
+      release-tag: linker-inputs-v${{ needs.prepare.outputs.version }}
+      release-name: Go linker inputs ${{ needs.prepare.outputs.version }}
+      artifact-name: linker-inputs-release
+      manifest-path: dependency.json

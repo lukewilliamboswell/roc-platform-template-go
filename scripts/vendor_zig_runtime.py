@@ -57,7 +57,7 @@ MINGW_ARTIFACTS = (
     *MINGW_IMPORT_LIBRARIES,
 )
 MUSL_TARGETS = ("x64musl", "x64v1musl", "arm64musl", "arm64v1musl")
-MINGW_TARGETS = ("x64mingw", "x64v1mingw", "arm64mingw", "arm64v1mingw")
+MINGW_TARGETS = ("x64mingw", "x64v1mingw")
 TARGET_ARTIFACTS = {
     **{target: MUSL_ARTIFACTS for target in MUSL_TARGETS},
     **{target: MINGW_ARTIFACTS for target in MINGW_TARGETS},
@@ -345,26 +345,15 @@ def main() -> None:
         build_mingw_runtime(
             "x64mingw", "x86_64-windows-gnu", work_dir, generated_dir, zig_lib_dir
         )
-        build_mingw_runtime(
-            "arm64mingw", "aarch64-windows-gnu", work_dir, generated_dir, zig_lib_dir
-        )
-
-        for source, destination in (
-            ("x64mingw", "x64v1mingw"),
-            ("arm64mingw", "arm64v1mingw"),
-        ):
+        for source, destination in (("x64mingw", "x64v1mingw"),):
             shutil.copytree(generated_dir / source, generated_dir / destination)
 
-        darwin_source = (
-            Path(lib_dir_match.group(1)) / "libc" / "darwin" / "libSystem.tbd"
-        )
-        if not darwin_source.is_file():
-            raise RuntimeError(
-                f"Zig Darwin interface stub is missing: {darwin_source}"
-            )
+        # This is generated exclusively from the reviewed project catalog. It
+        # deliberately never reads an Apple SDK or Zig's copy of an Apple TBD.
+        from build_macos_interface import build as build_macos_interface
         darwin_generated = generated_dir / DARWIN_SYSROOT
         darwin_generated.parent.mkdir(parents=True)
-        shutil.copy2(darwin_source, darwin_generated)
+        build_macos_interface(darwin_generated)
 
         destination_root = args.output_dir
         for target, artifacts in TARGET_ARTIFACTS.items():
