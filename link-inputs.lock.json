@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "kind": "roc-go-link-inputs",
+  "repository": "lukewilliamboswell/roc-platform-template-go",
+  "release": "link-inputs-sha256-091d368183e8954483cd250be250613eee3c274cae0db2877049c1065b167ed8",
+  "manifest": {
+    "asset": "build-input-release.json",
+    "sha256": "091d368183e8954483cd250be250613eee3c274cae0db2877049c1065b167ed8"
+  },
+  "source": {
+    "input_fingerprint": "5778f25b49fda475b6455f3c0a1f56ce11adfdcfe427cd633430ef07f5641c27",
+    "ref": "refs/heads/adopt/content-addressed-link-inputs",
+    "repository": "lukewilliamboswell/roc-platform-template-go",
+    "sha": "f218ae6d97b99cfbfdce486d6a508986e1158ceb",
+    "workflow": "lukewilliamboswell/roc-platform-template-go/.github/workflows/release-runtime.yml"
+  },
+  "targets": {
+    "all": {
+      "asset": "link-inputs-all.tar",
+      "sha256": "bd879c20cbd30b028c418ef7798f8fd72ea57276fecc12a03a9dc0b58e9fd41a",
+      "size": 22630400
+    }
+  }
+}
