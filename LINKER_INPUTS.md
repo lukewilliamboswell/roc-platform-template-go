@@ -22,7 +22,7 @@ are packaged and recorded in the SBOM. ARM64 Windows targets are intentionally
 suspended until the project has reliable native execution coverage.
 
 Dispatch `Publish PR linker inputs` from the default branch with the open PR
-number. The controller creates `linker-inputs.lock.json`; do not construct or
+number. The controller creates `link-inputs.lock.json`; do not construct or
 edit it by hand. The strict lock binds the archive and manifest names, sizes,
 hashes, source branch and commit, producer workflow, and producer-input
 fingerprint. Then use:
@@ -36,5 +36,4 @@ Producer validation uses `stage ARCHIVE --sha256 DIGEST`; this unsigned path is
 limited to a same-run CI candidate and cannot publish. Routine PRs never rebuild
 these inputs: they restore the archive cache, rehash it, and download only on a
 verified cache miss. The old versioned releases remain immutable historical
-records and provide the temporary bootstrap fallback until the first lock-only
-commit lands.
+records, but routine consumers cannot select them as a fallback.

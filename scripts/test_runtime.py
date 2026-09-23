@@ -5,7 +5,6 @@ import io
 import json
 import os
 from pathlib import Path
-import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -32,25 +31,12 @@ class RuntimeTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             self.archive = package(targets, self.root / 'dist', '0.1.0')
         self.manifest, self.files = read_archive(self.archive)
-        dependency = json.loads((self.archive.parent / 'dependency.json').read_text())
-        archive_asset = next(a for a in dependency['assets'] if a['role'] == 'linker-input-archive')
-        sbom_asset = next(a for a in dependency['assets'] if a['role'] == 'sbom')
-        raw_lock = {
-            'schema_version': 1,
-            'release_tag': dependency['release_tag'],
-            'archive': {key: archive_asset[key] for key in ('name', 'sha256', 'size')},
-            'sbom': {key: sbom_asset[key] for key in ('name', 'sha256', 'size')},
-            'source': dependency['source'],
-            'signer': {
-                'repository': 'lukewilliamboswell/roc-automation',
-                'workflow': '.github/workflows/publish-linker-inputs.yml',
-                'commit': '1' * 40,
-            },
-        }
-        lock_path = self.root / 'linker-inputs.lock.json'
+        raw_lock = self.content_lock()
+        lock_path = self.root / 'link-inputs.lock.json'
         self.raw_lock = raw_lock
         lock_path.write_bytes(json_bytes(raw_lock))
-        self.lock = fetch.load_lock(lock_path)
+        with patch.object(fetch, 'input_fingerprint', return_value='c' * 64):
+            self.lock = fetch.load_lock(lock_path)
 
     def test_archive_reproducibility_and_sbom_coverage(self):
         second = self.root / 'second.tar.gz'
@@ -103,57 +89,6 @@ class RuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
             read_archive(bad)
 
-    def test_attestation_policy_uses_locked_identity(self):
-        with patch.object(fetch.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '[{}]')) as run:
-            fetch.verify_attestation(self.archive, self.lock, fetch.PROVENANCE)
-        args = run.call_args.args[0]
-        for key, value in [('--source-digest', self.lock['source_commit']),
-                           ('--source-ref', 'refs/heads/main'), ('--signer-digest', self.lock['signer_digest']),
-                           ('--signer-workflow', self.lock['signer_workflow']), ('--repo', self.lock['repository']),
-                           ('--predicate-type', fetch.PROVENANCE)]:
-            self.assertEqual(args[args.index(key) + 1], value)
-        self.assertIn('--deny-self-hosted-runners', args)
-        with patch.object(fetch.subprocess, 'run', side_effect=subprocess.CalledProcessError(1, ['gh'])):
-            with self.assertRaises(subprocess.CalledProcessError):
-                fetch.verify_attestation(self.archive, self.lock, fetch.PROVENANCE)
-
-    def test_release_verification_requires_provenance_and_matching_locked_sbom(self):
-        document = json.loads((self.archive.parent / 'linker-inputs.spdx.json').read_text())
-        def producer_verification(artifact, lock, predicate):
-            if predicate != fetch.PROVENANCE:
-                raise ValueError('Unexpected attestation predicate')
-            return [{}]
-
-        with patch.object(fetch, 'verify_attestation', side_effect=producer_verification) as verify:
-            self.assertEqual(fetch.verify_release(self.archive.parent, self.lock), self.archive)
-            self.assertEqual([c.args[2] for c in verify.call_args_list], [fetch.PROVENANCE, fetch.PROVENANCE])
-        sbom = self.archive.parent / 'linker-inputs.spdx.json'
-        sbom.write_bytes(b'{}')
-        with patch.object(fetch, 'verify_attestation') as verify:
-            with self.assertRaisesRegex(ValueError, 'SBOM differs from lock'):
-                fetch.verify_release(self.archive.parent, self.lock)
-            verify.assert_not_called()
-        sbom.write_text(json.dumps(document))
-        self.archive.write_bytes(b'tampered')
-        with patch.object(fetch, 'verify_attestation') as verify:
-            with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
-                fetch.verify_release(self.archive.parent, self.lock)
-            verify.assert_not_called()
-
-    def test_fetch_does_not_install_after_authentication_failure(self):
-        cache = self.root / '.linker-inputs-cache' / self.lock['sha256']
-        cache.mkdir(parents=True)
-        for name in [self.archive.name, 'linker-inputs.spdx.json']:
-            source = self.archive.parent / name
-            (cache / name).write_bytes(source.read_bytes())
-        with patch.object(fetch, 'ROOT', self.root), \
-             patch.object(fetch, 'load_lock', return_value=self.lock), \
-             patch.object(fetch, 'verify_attestation', side_effect=ValueError('invalid proof')), \
-             patch.object(fetch, 'install') as install:
-            with self.assertRaisesRegex(ValueError, 'invalid proof'):
-                fetch.fetch()
-            install.assert_not_called()
-
     def test_install_preserves_host_and_rejects_symlink_parents(self):
         platform = self.root / 'platform'
         host = platform / 'targets/x64musl/libhost.a'
@@ -175,9 +110,11 @@ class RuntimeTests(unittest.TestCase):
         lock_path.write_bytes(json_bytes(self.raw_lock))
         cache = self.root / '.linker-inputs-cache' / self.lock['sha256']
         cache.mkdir(parents=True)
-        cached = cache / self.archive.name
+        cached = cache / self.lock['asset']
         cached.write_bytes(self.archive.read_bytes())
-        with patch.object(fetch, 'ROOT', self.root), patch.dict(os.environ, {}, clear=True):
+        with patch.object(fetch, 'ROOT', self.root), \
+             patch.object(fetch, 'input_fingerprint', return_value='c' * 64), \
+             patch.dict(os.environ, {}, clear=True):
             self.assertEqual(fetch.verify_installed(platform, lock_path), self.lock['sha256'])
             selected = next(iter(RUNTIME_PATHS))
             (platform / selected).write_bytes(b'tampered')
@@ -216,6 +153,7 @@ class RuntimeTests(unittest.TestCase):
         cache.mkdir(parents=True)
         (cache / selected['asset']).write_bytes(self.archive.read_bytes())
         with patch.object(fetch, 'ROOT', self.root), patch.object(fetch, 'load_lock', return_value=selected), \
+             patch.dict(os.environ, {}, clear=True), \
              patch.object(fetch, 'download') as download:
             fetch.fetch()
         download.assert_not_called()

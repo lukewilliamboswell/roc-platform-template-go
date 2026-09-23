@@ -21,7 +21,7 @@ jobs:
       contents: write
       pull-requests: read
     steps:
-      - uses: lukewilliamboswell/roc-automation/actions/publish-build-inputs@4d4011566d9b50a7b75b3eca868c61de0f5bdd4b
+      - uses: lukewilliamboswell/roc-automation/actions/publish-build-inputs@26f35e78f19c761b0160768f267e321dbccac3c7
         with:
           pull-request: ${{ inputs.pull-request }}
           producer-workflow: release-runtime.yml
