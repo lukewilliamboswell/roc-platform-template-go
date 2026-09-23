@@ -12,7 +12,7 @@ CommandError := [OperationFailed, UnknownCommand(Str)].{
 	}
 }
 
-main! : List(Str) => Try({}, [ApplicationError(CommandError), Exit(I32), StdoutErr(Str), ..])
+main! : List(Str) => Try({}, [ApplicationError(CommandError), Exit(I32), StdoutErr(Str)])
 main! = |args| {
 	command = args.get(1) ?? "failure"
 
@@ -26,7 +26,7 @@ main! = |args| {
 	}
 }
 
-application_error : CommandError -> Try({}, [ApplicationError(CommandError), ..])
+application_error : CommandError -> Try({}, [ApplicationError(CommandError)])
 application_error = |error| Err(ApplicationError(error))
 
 ## A nominal error controls how it appears inside the platform error tag.

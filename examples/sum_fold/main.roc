@@ -4,7 +4,7 @@ import pf.Stdout
 
 # Demonstrates parsing CLI values, mapping errors, and folding decoded numbers.
 
-main! : List(Str) => Try({}, [Exit(I32), InvalidNumber(Str), StdoutErr(Str), ..])
+main! : List(Str) => Try({}, [Exit(I32), InvalidNumber(Str), StdoutErr(Str)])
 main! = |args| {
 	provided_numbers = args.drop_first(1)
 	raw_numbers = if provided_numbers.is_empty() ["1", "2", "3"] else provided_numbers
@@ -16,7 +16,7 @@ main! = |args| {
 	Ok({})
 }
 
-parse_numbers : List(Str) -> Try(List(I64), [InvalidNumber(Str), ..])
+parse_numbers : List(Str) -> Try(List(I64), [InvalidNumber(Str)])
 parse_numbers = |raw_numbers| {
 	var $numbers = []
 

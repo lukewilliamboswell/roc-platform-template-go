@@ -5,7 +5,7 @@ import pf.Stdout
 
 # Demonstrates interactive I/O while propagating both read and write failures.
 
-main! : List(Str) => Try({}, [Exit(I32), StdinErr(Str), StdoutErr(Str), ..])
+main! : List(Str) => Try({}, [Exit(I32), StdinErr(Str), StdoutErr(Str)])
 main! = |_args| {
 	Stdout.line!("Enter something and I'll echo it back:")?
 	input = Stdin.line!({})?

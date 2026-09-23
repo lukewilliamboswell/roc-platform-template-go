@@ -4,7 +4,7 @@ import pf.Stdout
 
 # Demonstrates focused tests for both successful and rejected input.
 
-main! : List(Str) => Try({}, [Exit(I32), StdoutErr(Str), ..])
+main! : List(Str) => Try({}, [Exit(I32), StdoutErr(Str)])
 main! = |_args| {
 	Stdout.line!("Run 'roc test --verbose examples/tests/main.roc' to execute the tests")?
 	Ok({})

@@ -4,7 +4,7 @@ import pf.Stdout
 
 # Demonstrates a total match over user input, including an explicit catch-all.
 
-main! : List(Str) => Try({}, [Exit(I32), StdoutErr(Str), ..])
+main! : List(Str) => Try({}, [Exit(I32), StdoutErr(Str)])
 main! = |args| {
 	status = args.get(1) ?? "pending"
 	Stdout.line!(status_message(status))?
