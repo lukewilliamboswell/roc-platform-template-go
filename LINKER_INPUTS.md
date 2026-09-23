@@ -36,5 +36,4 @@ Producer validation uses `stage ARCHIVE --sha256 DIGEST`; this unsigned path is
 limited to a same-run CI candidate and cannot publish. Routine PRs never rebuild
 these inputs: they restore the archive cache, rehash it, and download only on a
 verified cache miss. The old versioned releases remain immutable historical
-records and provide the temporary bootstrap fallback until the first lock-only
-commit lands.
+records, but routine consumers cannot select them as a fallback.

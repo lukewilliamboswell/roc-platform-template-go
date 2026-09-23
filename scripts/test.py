@@ -656,7 +656,7 @@ def dependency_archive_sha256() -> str:
             if isinstance(digest, str) and re.fullmatch(r"[0-9a-f]{64}", digest):
                 return digest
             raise TestFailure(f"Invalid dependency receipt: {receipt}")
-    raise TestFailure("Missing linker-input or legacy runtime receipt")
+    raise TestFailure("Missing content-addressed linker-input receipt")
 
 
 def write_artifact_manifest(

@@ -70,14 +70,14 @@ download only the exact locked archive, and every use rehashes it before safe
 extraction. Repeating online attestation checks would add traffic without
 changing the reviewed dependency selection.
 
-For staged adoption, `scripts/runtime_release.json` remains supported until the
-first publisher-generated `link-inputs.lock.json` lands. Consumers prefer the
-new lock when present; remove the compatibility lock in a later reviewed cleanup.
+`link-inputs.lock.json` is created only by the trusted publisher. Its absence is
+an error: routine consumers never select an older versioned release or rebuild
+external inputs as a fallback.
 
 Only the declared regular-file inventory may be installed. Traversal, links,
 duplicate entries, missing files, and unexpected paths fail validation. The
 installation preserves separately generated host archives. Cached assets live
-under `.runtime-cache/<sha256>`; every fetch reauthenticates them, and bundle
+under `.linker-inputs-cache/<sha256>`; every fetch rehashes them, and bundle
 assembly compares installed files and metadata with the digest-pinned archive.
 A verification failure never falls back to unverified bytes.
 
@@ -99,29 +99,11 @@ CI attestation and must not be substituted for a published dependency.
 
 ## Recovery and upgrades
 
-Publication rejects reused versions rather than replacing assets or tags. If a
-run stops after creating a draft, retain the run's `runtime-signed` artifact and
-inspect the draft, tag commit, signatures, and uploaded hashes. Recovery is manual:
-only upload missing assets from that original signed artifact, require existing
-assets to match byte-for-byte, verify all downloads, then publish the draft. Never
-rebuild against a newer main commit, overwrite assets, move a tag, or delete a
-published release. If the exact signed artifact cannot be recovered, leave the
-partial version unused and select a new version.
+The release tag is derived from the aggregate manifest hash. The trusted
+publisher may resume only an identical draft, verifies every downloaded asset,
+and refuses a differing existing tag or release. Never rebuild against a newer
+PR commit, overwrite assets, move a tag, or delete an immutable release.
 
 A runtime upgrade is a reviewed lock change independent of nightly pins. Include
 source/license and SBOM differences, exact release digest, and cross-platform CI
 evidence. Publication alone does not promote the dependency into platform builds.
-
-## Initial release evidence
-
-[Runtime 0.1.0](https://github.com/lukewilliamboswell/roc-platform-template-go/releases/tag/runtime-v0.1.0)
-was published immutably by [the release workflow](https://github.com/lukewilliamboswell/roc-platform-template-go/actions/runs/34200748061)
-from commit `bdaacfab09ae6e3cd19d4a2930b6b8c93741cc23`. Both clean builds matched
-byte-for-byte and all runtime inputs matched the original baseline. All six
-producer jobs and eight native consumer jobs passed before signing.
-
-The published archive SHA-256 is
-`9d3a957122962b9e837c2b158c4798475250214d214eec53dcb7fd3de8c981bd`.
-Public downloads were independently authenticated and compared with the tested
-candidate before adding the consumer lock. Runtime release assets are separate
-from a complete platform release; the Go hosts are still built from platform source.
