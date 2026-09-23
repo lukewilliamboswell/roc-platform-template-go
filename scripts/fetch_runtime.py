@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -14,12 +15,38 @@ import urllib.request
 
 from runtime_assets import (ROOT, REPO, WORKFLOW, MANIFEST, RUNTIME_PATHS, PAYLOAD_PATHS,
                             SHA, COMMIT, archive_name, json_bytes, read_archive, sha256)
+from build_input_release import fingerprint as input_fingerprint
 
 LOCK = ROOT / "linker-inputs.lock.json"
 PROVENANCE = "https://slsa.dev/provenance/v1"
 
 
 def load_lock(path: Path = LOCK) -> dict:
+    if path.is_file() and "kind" in json.loads(path.read_text()):
+        value = json.loads(path.read_text())
+        record = value.get("targets", {}).get("all", {})
+        source = value.get("source", {})
+        manifest = value.get("manifest", {})
+        if (set(value) != {"schema_version", "kind", "repository", "release", "manifest", "source", "targets"}
+                or value.get("schema_version") != 1 or value.get("kind") != "roc-go-link-inputs"
+                or value.get("repository") != REPO or set(value.get("targets", {})) != {"all"}
+                or not re.fullmatch(r"link-inputs-sha256-[0-9a-f]{64}", value.get("release", ""))
+                or set(manifest) != {"asset", "sha256"}
+                or manifest.get("asset") != "build-input-release.json"
+                or not SHA.fullmatch(manifest.get("sha256", ""))
+                or set(source) != {"repository", "sha", "ref", "workflow", "input_fingerprint"}
+                or source.get("repository") != REPO or not COMMIT.fullmatch(source.get("sha", ""))
+                or not source.get("ref", "").startswith("refs/heads/")
+                or source.get("workflow") != f"{REPO}/.github/workflows/release-runtime.yml"
+                or source.get("input_fingerprint") != input_fingerprint()
+                or set(record) != {"asset", "sha256", "size"}
+                or record.get("asset") != "link-inputs-all.tar"
+                or not SHA.fullmatch(record.get("sha256", ""))
+                or type(record.get("size")) is not int or record["size"] <= 0):
+            raise ValueError("Invalid content-addressed linker-input lock")
+        return {"format": 2, "repository": REPO, "release": value["release"],
+                "asset": record["asset"], "sha256": record["sha256"], "size": record["size"],
+                "source_commit": source["sha"], "source_ref": source["ref"]}
     lock = json.loads(path.read_text())
     expected = {"schema_version", "release_tag", "archive", "sbom", "source", "signer"}
     if (set(lock) != expected or lock["schema_version"] != 1
@@ -138,7 +165,8 @@ def verify_installed(platform: Path = ROOT / "platform", lock_path: Path = LOCK)
     manifest = json.loads((platform / MANIFEST).read_text())
     if receipt.get("sha256") != expected_digest or set(manifest.get("files", {})) != PAYLOAD_PATHS:
         raise ValueError("Installed linker inputs does not match the selected release")
-    if lock and (manifest["source_commit"] != lock["source_commit"] or manifest["version"] != lock["version"]):
+    if lock and (manifest["source_commit"] != lock["source_commit"]
+                 or (lock.get("format", 1) != 2 and manifest["version"] != lock["version"])):
         raise ValueError("Installed linker inputs metadata differs from lock")
     for name, expected in manifest["files"].items():
         path = platform / name
@@ -156,7 +184,8 @@ def verify_installed(platform: Path = ROOT / "platform", lock_path: Path = LOCK)
     # Compare installed metadata and bytes with the original authenticated archive
     # on every bundle, so editing the manifest/receipt cannot bless modified files.
     cache = ROOT / ".linker-inputs-cache" / expected_digest
-    archive = cache / archive_name(manifest["version"])
+    archive = cache / (lock.get("asset") if lock and lock.get("asset")
+                       else archive_name(manifest["version"]))
     if sha256(archive) != expected_digest:
         raise ValueError("Cached linker-input archive checksum mismatch")
     _, original = read_archive(archive)
@@ -170,14 +199,25 @@ def fetch() -> None:
     lock = load_lock()
     cache = ROOT / ".linker-inputs-cache" / lock["sha256"]
     cache.mkdir(parents=True, exist_ok=True)
+    if lock.get("format") == 2:
+        archive = cache / lock["asset"]
+        if (not archive.is_file() or archive.stat().st_size != lock["size"]
+                or sha256(archive) != lock["sha256"]):
+            archive.unlink(missing_ok=True)
+            download(f"https://github.com/{REPO}/releases/download/{lock['release']}/{lock['asset']}", archive)
+        if archive.stat().st_size != lock["size"] or sha256(archive) != lock["sha256"]:
+            raise ValueError("Cached linker-input archive differs from its reviewed content hash")
+        install(archive, lock["sha256"], ROOT / "platform")
+        verify_installed(ROOT / "platform", ROOT / "linker-inputs.lock.json")
+        return
     base = f"https://github.com/{REPO}/releases/download/linker-inputs-v{lock['version']}"
     for name in [archive_name(lock["version"]), "linker-inputs.spdx.json"]:
         destination = cache / name
         if not destination.exists():
             download(f"{base}/{name}", destination)
     archive = verify_release(cache, lock)
-    install(archive, lock["sha256"])
-    verify_installed()
+    install(archive, lock["sha256"], ROOT / "platform")
+    verify_installed(ROOT / "platform", ROOT / "linker-inputs.lock.json")
 
 
 def main() -> None:

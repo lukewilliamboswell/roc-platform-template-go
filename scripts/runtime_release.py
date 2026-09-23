@@ -1,30 +1,11 @@
 #!/usr/bin/env python3
-"""Release-controller checks; never run a build with publication credentials."""
+"""Compare independently built linker-input candidates byte for byte."""
 import argparse
 import json
 import os
 from pathlib import Path
-import subprocess
 
-from runtime_assets import REPO, ROOT, archive_name, read_archive, sha256
-
-
-def must_be_new(tag):
-    for endpoint in (f"releases/tags/{tag}", f"git/ref/tags/{tag}"):
-        result = subprocess.run(["gh", "api", f"repos/{REPO}/{endpoint}"], capture_output=True, text=True)
-        if result.returncode == 0:
-            raise ValueError(f"Release/tag already exists: {tag}; use the documented recovery procedure")
-        if "(HTTP 404)" not in result.stderr:
-            raise ValueError(f"Could not check release identity: {result.stderr}")
-
-
-def prepare(version):
-    name = archive_name(version)
-    if os.environ.get("GITHUB_REF") != "refs/heads/main" or os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch":
-        raise ValueError("Linker-input publication requires a manual dispatch from main")
-    must_be_new(f"linker-inputs-v{version}")
-    with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-        output.write(f"version={version}\narchive={name}\n")
+from runtime_assets import archive_name, read_archive, sha256
 
 
 def compare(left, right):
@@ -48,13 +29,8 @@ def compare(left, right):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    p = commands.add_parser("prepare")
-    p.add_argument("--version", required=True)
     p = commands.add_parser("compare")
     p.add_argument("--left", required=True, type=Path)
     p.add_argument("--right", required=True, type=Path)
     args = parser.parse_args()
-    if args.command == "prepare":
-        prepare(args.version)
-    elif args.command == "compare":
-        compare(args.left, args.right)
+    compare(args.left, args.right)

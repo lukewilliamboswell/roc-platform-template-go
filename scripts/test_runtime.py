@@ -15,7 +15,7 @@ import fetch_runtime as fetch
 from package_runtime import package
 from runtime_assets import (MANIFEST, RUNTIME_PATHS, ROOT, json_bytes, read_archive,
                             sha256, write_archive)
-from runtime_release import must_be_new, prepare
+import build_input_release
 from build_macos_interface import read_catalog, render
 
 
@@ -192,13 +192,48 @@ class RuntimeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Cached linker-input archive'):
                 fetch.verify_installed(platform, lock_path)
 
-    def test_publication_rejects_non_main_and_existing_versions(self):
-        with patch.dict(os.environ, {'GITHUB_REF': 'refs/heads/a-pr', 'GITHUB_EVENT_NAME': 'workflow_dispatch'}):
-            with self.assertRaisesRegex(ValueError, 'dispatch from main'):
-                prepare('0.1.0')
-        with patch('runtime_release.subprocess.run', return_value=subprocess.CompletedProcess([], 0, '{}', '')):
-            with self.assertRaisesRegex(ValueError, 'already exists'):
-                must_be_new('linker-inputs-v0.1.0')
+    def content_lock(self):
+        data = self.archive.read_bytes()
+        return {
+            'schema_version': 1, 'kind': 'roc-go-link-inputs', 'repository': fetch.REPO,
+            'release': 'link-inputs-sha256-' + 'a' * 64,
+            'manifest': {'asset': 'build-input-release.json', 'sha256': 'b' * 64},
+            'source': {'repository': fetch.REPO, 'sha': self.manifest['source_commit'],
+                       'ref': 'refs/heads/linker-change',
+                       'workflow': fetch.REPO + '/.github/workflows/release-runtime.yml',
+                       'input_fingerprint': 'c' * 64},
+            'targets': {'all': {'asset': 'link-inputs-all.tar',
+                                'sha256': hashlib.sha256(data).hexdigest(), 'size': len(data)}},
+        }
+
+    def test_content_lock_cache_hit_rehashes_without_network(self):
+        lock = self.content_lock()
+        path = self.root / 'content.lock.json'
+        path.write_bytes(json_bytes(lock))
+        with patch.object(fetch, 'input_fingerprint', return_value='c' * 64):
+            selected = fetch.load_lock(path)
+        cache = self.root / '.linker-inputs-cache' / selected['sha256']
+        cache.mkdir(parents=True)
+        (cache / selected['asset']).write_bytes(self.archive.read_bytes())
+        with patch.object(fetch, 'ROOT', self.root), patch.object(fetch, 'load_lock', return_value=selected), \
+             patch.object(fetch, 'download') as download:
+            fetch.fetch()
+        download.assert_not_called()
+
+    def test_publisher_asset_is_a_genuine_plain_tar(self):
+        output = self.root / 'publisher'
+        with patch.dict(os.environ, {'GITHUB_REPOSITORY': fetch.REPO,
+                                     'GITHUB_SHA': self.manifest['source_commit'],
+                                     'GITHUB_REF': 'refs/heads/linker-change'}), \
+             patch.object(build_input_release, 'fingerprint', return_value='c' * 64):
+            build_input_release.prepare(self.archive.parent, output)
+        asset = output / 'link-inputs-all.tar'
+        self.assertTrue(tarfile.is_tarfile(asset))
+        self.assertNotEqual(asset.read_bytes()[:2], b'\x1f\x8b')
+        self.assertEqual(read_archive(asset)[1], self.files)
+        manifest = json.loads((output / 'build-input-release.json').read_text())
+        self.assertEqual(set(output.iterdir()), {asset, output / 'build-input-release.json'})
+        self.assertEqual(manifest['assets']['all']['sha256'], sha256(asset))
 
 
 if __name__ == '__main__':

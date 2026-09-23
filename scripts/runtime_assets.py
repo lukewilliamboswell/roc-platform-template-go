@@ -13,7 +13,7 @@ from vendor_zig_runtime import TARGET_ARTIFACTS, DARWIN_SYSROOT
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = "lukewilliamboswell/roc-platform-template-go"
-WORKFLOW = f"{REPO}/.github/workflows/linker-inputs.yml"
+WORKFLOW = f"{REPO}/.github/workflows/release-runtime.yml"
 MANIFEST = "linker-inputs/dependency.json"
 SOURCES = "linker-inputs/sources.json"
 NOTICES = ("musl-COPYRIGHT", "zig-LICENSE", "mingw-w64-COPYING")
@@ -77,7 +77,7 @@ def read_archive(archive: Path) -> tuple[dict, dict[str, bytes]]:
         raise ValueError("Linker-input archive exceeds size limit")
     files = {}
     total = 0
-    with tarfile.open(archive, "r:gz") as tar:
+    with tarfile.open(archive, "r:*") as tar:
         for member in tar:
             if (not member.isfile() or not safe_path(member.name)
                     or member.name in files or member.name not in PAYLOAD_PATHS | {MANIFEST}):

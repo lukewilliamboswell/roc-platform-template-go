@@ -23,35 +23,37 @@ gzip has a fixed timestamp and no embedded filename. The existing object/archive
 normalization makes independent builds byte-identical. The archive and generated
 SPDX 2.3 SBOM must match across two clean GitHub-hosted builders.
 
-## Publish an independent runtime version
+## Publish an independent linker-input release
 
-Merge reviewed recipe changes to `main`, then dispatch **Release runtime
-dependencies** with a new numeric version, for example `0.1.0`. The workflow
-captures the dispatch commit and accepts no alternative source ref. It:
+Open a same-repository PR containing the material producer change. Its candidate
+workflow builds twice and runs the existing full validation matrix without write
+authority. From `main`, dispatch **Publish PR linker inputs** with the PR number.
+The controller is pinned to a reviewed roc-automation commit and:
 
-1. Checks that neither the runtime tag nor release already exists.
+1. Dispatches the exact PR head and admits no other branch or workflow.
 2. Builds twice using isolated caches and the checksum-pinned Zig distribution.
 3. Compares archives and metadata byte-for-byte. The first `0.1.0` release must
    match the original `scripts/runtime_bootstrap.sha256` binary baseline.
 4. Runs the full existing cross-builder and native application validation matrix
    with the candidate archive. These jobs have read-only permissions.
-5. In a separate job that executes no build scripts, creates SLSA provenance for
-   the archive and SBOM and an SBOM attestation bound to the archive digest.
-6. Verifies the signed assets, creates a draft `runtime-vX.Y.Z` release targeting
-   the tested commit, uploads and reads back all assets, then publishes it. Runtime
-   releases request `--latest=false`. Consumers always use versioned `runtime-v`
-   URLs: GitHub can still show the sole release through its latest-release view.
+5. Attests the exact target archive and aggregate manifest.
+6. Verifies those attestations, publishes an immutable release identified by the
+   manifest hash, reads the assets back, and adds only `link-inputs.lock.json` as
+   a lease-guarded GitHub-signed commit to the still-open PR.
 
-The release contains the tarball, `runtime.spdx.json`, `SHA256SUMS`,
-`provenance.sigstore.json`, `sbom.sigstore.json`, and a proposed consumer lock
-named `runtime-release.json`. Published releases must be immutable.
+The authority split is why producer code can release inputs before merge without
+being trusted with repository or release credentials: the default-branch
+controller executes no PR code and admits only the exact tested bytes.
+
+The release contains the target archive, attested aggregate manifest, and the
+publisher-generated consumer lock. Published releases must be immutable.
 
 Routine nightly and pull-request CI cannot publish or attest runtime releases.
 
 ## Consume and verify
 
-`scripts/runtime_release.json` is the reviewed dependency lock. Routine CI fetches
-that exact release; generated runtime files are ignored rather than tracked.
+`link-inputs.lock.json` is the reviewed dependency lock after adoption. Routine
+CI fetches that exact release; generated runtime files are ignored rather than tracked.
 Git history is preserved. The normal contributor sequence is:
 
 ```console
@@ -61,12 +63,16 @@ python scripts/test.py --operation all
 python scripts/bundle.py --output-dir dist
 ```
 
-The fetcher needs Python 3.11+ and a GitHub CLI supporting `gh attestation verify`
-with signer/source digest constraints. CI uses its read-only GitHub token.
-It downloads immutable versioned assets and checks the locked archive digest,
-provenance, SBOM, repository, workflow, source commit, signer commit, main ref,
-and GitHub-hosted runner identity before extraction. The published SBOM must
-match its signed predicate and every archive file checksum.
+The trusted publisher checks provenance, workflow identity, source commit and
+attestations when a lock changes. Routine consumers deliberately use only the
+committed size and SHA-256: cache hits need no network request, cache misses
+download only the exact locked archive, and every use rehashes it before safe
+extraction. Repeating online attestation checks would add traffic without
+changing the reviewed dependency selection.
+
+For staged adoption, `scripts/runtime_release.json` remains supported until the
+first publisher-generated `link-inputs.lock.json` lands. Consumers prefer the
+new lock when present; remove the compatibility lock in a later reviewed cleanup.
 
 Only the declared regular-file inventory may be installed. Traversal, links,
 duplicate entries, missing files, and unexpected paths fail validation. The

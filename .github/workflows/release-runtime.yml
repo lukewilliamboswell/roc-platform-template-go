@@ -1,157 +1,83 @@
-name: Release runtime dependencies
-
+name: Linker-input release candidate
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: "New independent runtime version (X.Y.Z)"
-        type: string
+      release_candidate:
+        description: Build and attest bytes for the trusted publisher
+        type: boolean
+        default: false
         required: true
-
+      expected_sha:
+        description: Exact PR branch commit requested by the trusted publisher
+        type: string
+        required: false
 permissions:
   contents: read
-
 concurrency:
-  group: release-runtime
+  group: linker-input-candidate-${{ github.ref }}
   cancel-in-progress: false
-
 jobs:
-  prepare:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-22.04
-    outputs:
-      version: ${{ steps.prepare.outputs.version }}
-      archive: ${{ steps.prepare.outputs.archive }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - id: prepare
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_VERSION: ${{ inputs.version }}
-        run: python3 scripts/runtime_release.py prepare --version "$RELEASE_VERSION"
-
   build:
-    needs: prepare
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
-      matrix:
-        replica: [a, b]
+      matrix: {replica: [a, b]}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
-        with:
-          python-version: "3.13"
+        with: {python-version: "3.13"}
       - name: Install checksum-pinned Zig and verify source notices
         run: python scripts/install_runtime_zig.py
-      - name: Build from bundled trusted sources in isolated caches
-        run: python scripts/vendor_zig_runtime.py --output-dir ci-output/runtime-targets
-      - name: Package archive and source/file SBOM
-        env:
-          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
-        run: python scripts/package_runtime.py --targets-dir ci-output/runtime-targets --output-dir ci-output/runtime-dist --version "$RELEASE_VERSION"
-      - name: Ensure builds did not modify source
-        run: git diff --exit-code
+      - name: Build aggregate Linux, Windows, and macOS linker inputs
+        run: python scripts/vendor_zig_runtime.py --output-dir ci-output/linker-input-targets
+      - name: Package deterministic candidate
+        run: python scripts/package_runtime.py --targets-dir ci-output/linker-input-targets --output-dir ci-output/linker-input-dist --version 0.1.0
+      - run: git diff --exit-code
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: runtime-${{ matrix.replica }}
-          path: ci-output/runtime-dist
+          name: linker-inputs-${{ matrix.replica }}
+          path: ci-output/linker-input-dist
           if-no-files-found: error
           retention-days: 30
-
   reproduce:
     needs: build
     runs-on: ubuntu-22.04
-    outputs:
-      sha256: ${{ steps.compare.outputs.sha256 }}
+    outputs: {sha256: "${{ steps.compare.outputs.sha256 }}"}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
-        with:
-          python-version: "3.13"
+        with: {persist-credentials: false}
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          pattern: runtime-*
-          path: replicas
+        with: {pattern: "linker-inputs-*", path: replicas}
       - id: compare
-        run: python scripts/runtime_release.py compare --left replicas/runtime-a --right replicas/runtime-b
-
+        run: python scripts/runtime_release.py compare --left replicas/linker-inputs-a --right replicas/linker-inputs-b
   validate:
     needs: reproduce
     uses: ./.github/workflows/ci.yml
     with:
-      runtime_candidate_artifact: runtime-a
+      runtime_candidate_artifact: linker-inputs-a
       runtime_candidate_sha256: ${{ needs.reproduce.outputs.sha256 }}
-
-  attest:
-    needs: [prepare, reproduce, validate]
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-      id-token: write
-      attestations: write
-      artifact-metadata: write
-    steps:
-      # This job executes no build scripts and checks out no consumer code.
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          name: runtime-a
-          path: runtime-dist
-      - name: Confirm validated archive identity
-        env:
-          ARCHIVE: ${{ needs.prepare.outputs.archive }}
-          EXPECTED_SHA256: ${{ needs.reproduce.outputs.sha256 }}
-        run: |
-          echo "$EXPECTED_SHA256  runtime-dist/$ARCHIVE" | sha256sum --check --strict
-      - name: Attest build provenance for archive and SBOM
-        id: provenance
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
-        with:
-          subject-checksums: runtime-dist/SHA256SUMS
-      - name: Attest SBOM for the validated archive
-        id: sbom
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
-        with:
-          subject-path: runtime-dist/${{ needs.prepare.outputs.archive }}
-          sbom-path: runtime-dist/runtime.spdx.json
-      - name: Preserve downloadable verification bundles
-        env:
-          PROVENANCE_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
-          SBOM_BUNDLE: ${{ steps.sbom.outputs.bundle-path }}
-        run: |
-          cp "$PROVENANCE_BUNDLE" runtime-dist/provenance.sigstore.json
-          cp "$SBOM_BUNDLE" runtime-dist/sbom.sigstore.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: runtime-signed
-          path: runtime-dist
-          if-no-files-found: error
-          retention-days: 90
-
-  publish:
-    needs: attest
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: write
+  candidate:
+    needs: [reproduce, validate]
+    runs-on: ubuntu-24.04
+    permissions: {contents: read, id-token: write, attestations: write}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
-        with:
-          python-version: "3.13"
+        with: {persist-credentials: false}
+      - name: Admit the publisher's exact request
+        if: inputs.release_candidate
+        env: {EXPECTED_SHA: "${{ inputs.expected_sha }}"}
+        run: test -n "$EXPECTED_SHA" && test "$EXPECTED_SHA" = "$GITHUB_SHA"
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with: {name: linker-inputs-a, path: linker-input-dist}
+      - run: python scripts/build_input_release.py --source linker-input-dist --output release
+      - if: inputs.release_candidate
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
+        with: {subject-path: "release/*"}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: runtime-signed
-          path: runtime-dist
-      - name: Verify attestations, publish exact assets, and confirm immutability
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python scripts/runtime_release.py publish --directory runtime-dist
+          name: link-input-release
+          path: release/*
+          if-no-files-found: error
+          retention-days: 90
