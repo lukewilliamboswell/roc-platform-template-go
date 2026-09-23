@@ -153,6 +153,7 @@ class RuntimeTests(unittest.TestCase):
         cache.mkdir(parents=True)
         (cache / selected['asset']).write_bytes(self.archive.read_bytes())
         with patch.object(fetch, 'ROOT', self.root), patch.object(fetch, 'load_lock', return_value=selected), \
+             patch.dict(os.environ, {}, clear=True), \
              patch.object(fetch, 'download') as download:
             fetch.fetch()
         download.assert_not_called()
