@@ -67,7 +67,7 @@ in [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Linker-input dependencies
 
 Linker inputs are release assets and are not tracked in the source tree.
-[`linker-inputs.lock.json`](linker-inputs.lock.json) pins the content-addressed release,
+[`link-inputs.lock.json`](link-inputs.lock.json) pins the content-addressed release,
 archive digest, and signing/source identities. The fetcher verifies
 provenance and SBOM attestations, the archive checksum, and the complete file
 inventory before installing inputs under `platform/targets/`.

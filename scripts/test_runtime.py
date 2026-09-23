@@ -32,7 +32,7 @@ class RuntimeTests(unittest.TestCase):
             self.archive = package(targets, self.root / 'dist', '0.1.0')
         self.manifest, self.files = read_archive(self.archive)
         raw_lock = self.content_lock()
-        lock_path = self.root / 'linker-inputs.lock.json'
+        lock_path = self.root / 'link-inputs.lock.json'
         self.raw_lock = raw_lock
         lock_path.write_bytes(json_bytes(raw_lock))
         with patch.object(fetch, 'input_fingerprint', return_value='c' * 64):

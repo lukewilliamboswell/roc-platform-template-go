@@ -15,7 +15,7 @@ from runtime_assets import (ROOT, REPO, MANIFEST, RUNTIME_PATHS, PAYLOAD_PATHS,
                             SHA, COMMIT, archive_name, json_bytes, read_archive, sha256)
 from build_input_release import fingerprint as input_fingerprint
 
-LOCK = ROOT / "linker-inputs.lock.json"
+LOCK = ROOT / "link-inputs.lock.json"
 def load_lock(path: Path = LOCK) -> dict:
     value = json.loads(path.read_text())
     record = value.get("targets", {}).get("all", {})
@@ -140,7 +140,7 @@ def fetch() -> None:
     if archive.stat().st_size != lock["size"] or sha256(archive) != lock["sha256"]:
         raise ValueError("Cached linker-input archive differs from its reviewed content hash")
     install(archive, lock["sha256"], ROOT / "platform")
-    verify_installed(ROOT / "platform", ROOT / "linker-inputs.lock.json")
+    verify_installed(ROOT / "platform", ROOT / "link-inputs.lock.json")
 
 
 def main() -> None:

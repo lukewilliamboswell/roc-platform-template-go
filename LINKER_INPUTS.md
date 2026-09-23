@@ -22,7 +22,7 @@ are packaged and recorded in the SBOM. ARM64 Windows targets are intentionally
 suspended until the project has reliable native execution coverage.
 
 Dispatch `Publish PR linker inputs` from the default branch with the open PR
-number. The controller creates `linker-inputs.lock.json`; do not construct or
+number. The controller creates `link-inputs.lock.json`; do not construct or
 edit it by hand. The strict lock binds the archive and manifest names, sizes,
 hashes, source branch and commit, producer workflow, and producer-input
 fingerprint. Then use:
