@@ -1,10 +1,10 @@
-app [main!] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-19-d025939" }
+app [main!] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-23-c7852fd" }
 
 import pf.Stdout
 
 # Demonstrates a total match over user input, including an explicit catch-all.
 
-main! : List(Str) => Try({}, [Exit(I32), StdoutErr(Str), ..])
+main! : List(Str) => Try({}, [Exit(I32), StdoutErr(Str)])
 main! = |args| {
 	status = args.get(1) ?? "pending"
 	Stdout.line!(status_message(status))?

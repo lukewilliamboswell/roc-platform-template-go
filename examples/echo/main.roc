@@ -1,11 +1,11 @@
-app [main!] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-19-d025939" }
+app [main!] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-23-c7852fd" }
 
 import pf.Stdin
 import pf.Stdout
 
 # Demonstrates interactive I/O while propagating both read and write failures.
 
-main! : List(Str) => Try({}, [Exit(I32), StdinErr(Str), StdoutErr(Str), ..])
+main! : List(Str) => Try({}, [Exit(I32), StdinErr(Str), StdoutErr(Str)])
 main! = |_args| {
 	Stdout.line!("Enter something and I'll echo it back:")?
 	input = Stdin.line!({})?

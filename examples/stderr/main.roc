@@ -1,11 +1,11 @@
-app [main!] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-19-d025939" }
+app [main!] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-23-c7852fd" }
 
 import pf.Stdout
 import pf.Stderr
 
 # Demonstrates: Stderr output, both output streams
 
-main! : List(Str) => Try({}, [Exit(I32), StderrErr(Str), StdoutErr(Str), ..])
+main! : List(Str) => Try({}, [Exit(I32), StderrErr(Str), StdoutErr(Str)])
 main! = |_args| {
 	# Write to stdout
 	Stdout.line!("This message goes to stdout")?
