@@ -1,11 +1,11 @@
-app [main!] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-19-d025939" }
+app [main!] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-23-c7852fd" }
 
 import pf.Stdin
 import pf.Stdout
 
 # Echoes input as it arrives instead of retaining the entire stream in memory.
 
-main! : List(Str) => Try({}, [Exit(I32), StdinErr(Str), StdoutErr(Str), ..])
+main! : List(Str) => Try({}, [Exit(I32), StdinErr(Str), StdoutErr(Str)])
 main! = |_args| {
 	var $reading = True
 

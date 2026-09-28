@@ -1,18 +1,18 @@
-app [main!] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-19-d025939" }
+app [main!] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-23-c7852fd" }
 
 import pf.Stdout
 
 # Demonstrates a CLI default with `??`, domain error mapping with infix `?`,
 # effect propagation with postfix `?`, and a bounded loop.
 
-main! : List(Str) => Try({}, [Exit(I32), InvalidLimit(Str), LimitTooLarge(I64), LimitTooSmall(I64), StdoutErr(Str), ..])
+main! : List(Str) => Try({}, [Exit(I32), InvalidLimit(Str), LimitTooLarge(I64), LimitTooSmall(I64), StdoutErr(Str)])
 main! = |args| {
 	limit = limit_from_args(args)?
 	print_fizzbuzz!(limit)?
 	Ok({})
 }
 
-limit_from_args : List(Str) -> Try(I64, [InvalidLimit(Str), LimitTooLarge(I64), LimitTooSmall(I64), ..])
+limit_from_args : List(Str) -> Try(I64, [InvalidLimit(Str), LimitTooLarge(I64), LimitTooSmall(I64)])
 limit_from_args = |args| {
 	# Missing input has a sensible boundary default; malformed input does not.
 	raw_limit = args.get(1) ?? "15"
@@ -27,7 +27,7 @@ limit_from_args = |args| {
 	}
 }
 
-print_fizzbuzz! : I64 => Try({}, [StdoutErr(Str), ..])
+print_fizzbuzz! : I64 => Try({}, [StdoutErr(Str)])
 print_fizzbuzz! = |limit| {
 	var $n = 1
 

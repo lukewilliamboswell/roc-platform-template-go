@@ -169,7 +169,6 @@ static inline uint8_t* roc_erased_callable_capture_ptr(RocErasedCallable callabl
 typedef struct HostStderrLineResult HostStderrLineResult;
 typedef struct HostStdinLineResult HostStdinLineResult;
 typedef struct HostStdoutLineResult HostStdoutLineResult;
-typedef struct TryType16 TryType16;
 
 typedef uint8_t HostStderrLineResultTag;
 enum {
@@ -340,59 +339,6 @@ static inline RocStr HostStdoutLineResult_payload_err(const HostStdoutLineResult
     return value->payload.err;
 #else
     RocStr payload;
-    roc_abi_copy_bytes(&payload, value->payload, sizeof(payload));
-    return payload;
-#endif
-}
-
-typedef uint8_t TryType16Tag;
-enum {
-    TryType16Tag_Err = 0,
-    TryType16Tag_Ok = 1
-};
-typedef union {
-    int32_t err;
-    uint8_t ok;
-} TryType16TagPayloadStorage;
-#if UINTPTR_MAX == UINT64_MAX
-struct TryType16 {
-    TryType16TagPayloadStorage payload;
-    TryType16Tag tag;
-};
-ROC_STATIC_ASSERT(sizeof(TryType16) == 8, "TryType16 size mismatch");
-ROC_STATIC_ASSERT(ROC_ALIGNOF(TryType16) == 4, "TryType16 alignment mismatch");
-ROC_STATIC_ASSERT(offsetof(TryType16, tag) == 4, "TryType16.tag offset mismatch");
-#else
-struct TryType16 {
-    ROC_ALIGNAS(4) uint8_t payload[4];
-    TryType16Tag tag;
-};
-ROC_STATIC_ASSERT(sizeof(TryType16) == 8, "TryType16 size mismatch");
-ROC_STATIC_ASSERT(ROC_ALIGNOF(TryType16) == 4, "TryType16 alignment mismatch");
-ROC_STATIC_ASSERT(offsetof(TryType16, tag) == 4, "TryType16.tag offset mismatch");
-#endif
-static inline TryType16 TryType16_make_err(int32_t payload) {
-    TryType16 out = {0};
-    out.tag = TryType16Tag_Err;
-#if UINTPTR_MAX == UINT64_MAX
-    out.payload.err = payload;
-#else
-    roc_abi_copy_bytes(out.payload, &payload, sizeof(payload));
-#endif
-    return out;
-}
-
-static inline TryType16 TryType16_make_ok(void) {
-    TryType16 out = {0};
-    out.tag = TryType16Tag_Ok;
-    return out;
-}
-
-static inline int32_t TryType16_payload_err(const TryType16* value) {
-#if UINTPTR_MAX == UINT64_MAX
-    return value->payload.err;
-#else
-    int32_t payload;
     roc_abi_copy_bytes(&payload, value->payload, sizeof(payload));
     return payload;
 #endif
