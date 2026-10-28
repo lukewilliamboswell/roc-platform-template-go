@@ -11,7 +11,7 @@ main! = |args| {
 
 greeting_for : List(Str) -> Str
 greeting_for = |names| {
-	addressee = if names.is_empty() "Roc developer" else Str.join_with(names, ", ")
+	addressee = if (names.is_empty()) "Roc developer" else Str.join_with(names, ", ")
 	"Hello, ${addressee}!"
 }
 

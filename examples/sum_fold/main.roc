@@ -7,7 +7,7 @@ import pf.Stdout
 main! : List(Str) => Try({}, [Exit(I32), InvalidNumber(Str), StdoutErr(Str)])
 main! = |args| {
 	provided_numbers = args.drop_first(1)
-	raw_numbers = if provided_numbers.is_empty() ["1", "2", "3"] else provided_numbers
+	raw_numbers = if (provided_numbers.is_empty()) ["1", "2", "3"] else provided_numbers
 	numbers = parse_numbers(raw_numbers)?
 	labels = numbers.map(|number| number.to_str())
 
