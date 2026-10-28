@@ -13,6 +13,34 @@ import zipfile
 from test import serve_bundle
 
 
+def verify_release_assets(directory: Path):
+    sums = {}
+    for line in (directory / 'SHA256SUMS').read_text().splitlines():
+        digest, name = line.split('  ', 1)
+        if Path(name).name != name or name in sums:
+            raise ValueError('invalid release checksum inventory')
+        sums[name] = digest
+    actual = {p.name for p in directory.iterdir() if p.is_file()} - {'SHA256SUMS', 'release-notes.md'}
+    if set(sums) != actual:
+        raise ValueError('release file inventory differs from checksums')
+    for name, digest in sums.items():
+        if hashlib.sha256((directory / name).read_bytes()).hexdigest() != digest:
+            raise ValueError(f'release checksum mismatch: {name}')
+    for path in directory.glob('*.sbom-manifest.json'):
+        manifest = json.loads(path.read_text())
+        subject = manifest['subject']
+        asset = directory / subject['filename']
+        if subject['sha256'] != sums[asset.name] or subject['size'] != asset.stat().st_size:
+            raise ValueError('SBOM subject differs from tested artifact')
+        inventory = directory / (asset.name + '.inventory.json')
+        if manifest['inventory_sha256'] != sums[inventory.name]:
+            raise ValueError('SBOM inventory binding differs')
+        for sidecar in manifest['sidecars']:
+            delivered = directory / sidecar['filename']
+            if sidecar['sha256'] != sums[delivered.name] or sidecar['size'] != delivered.stat().st_size:
+                raise ValueError('SBOM sidecar binding differs')
+
+
 def test_archive(archive: Path, bundle: Path, target: str | None = None):
     with tempfile.TemporaryDirectory(prefix='go-platform-release-') as temporary:
         workspace = Path(temporary)
@@ -66,6 +94,7 @@ def main():
     parser.add_argument('--bundle', required=True, type=Path)
     parser.add_argument('--target')
     args = parser.parse_args()
+    verify_release_assets(args.archive.resolve().parent)
     test_archive(args.archive, args.bundle, args.target)
 
 

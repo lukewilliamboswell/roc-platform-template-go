@@ -159,6 +159,11 @@ jobs:
           test "${#bundle[@]}" = 1
           blueprint run package-release -- --bundle "${bundle[0]}" --version "$RELEASE_VERSION" --output-dir ci-output/release
 
+      - name: Generate and validate artifact-bound SPDX and CycloneDX inventories
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version || '0.1.0-dev' }}
+        run: blueprint run sbom -- --directory ci-output/release --version "$RELEASE_VERSION"
+
       - name: Upload cross-compiled test apps
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import re
 import subprocess
+import shutil
+import tempfile
 from pathlib import Path
 
 
@@ -82,23 +84,31 @@ def bundle_inputs() -> list[Path]:
 def bundle_platform(output_dir: Path) -> Path:
     output_dir = output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    relative_inputs = [str(path.relative_to(PLATFORM)) for path in bundle_inputs()]
-    result = subprocess.run(
-        [
-            "roc",
-            "bundle",
-            *relative_inputs,
-            "--output-dir",
-            str(output_dir),
-        ],
-        cwd=PLATFORM,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        check=False,
-    )
+    inputs = bundle_inputs()
+    with tempfile.TemporaryDirectory(prefix="go-platform-bundle-stage-") as temporary:
+        stage = Path(temporary)
+        relative_inputs = []
+        for source in inputs:
+            relative = source.relative_to(PLATFORM)
+            destination = stage / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, destination)
+            relative_inputs.append(relative.as_posix())
+        for relative in ("LICENSE", "THIRD_PARTY_LICENSES.md", "licenses/go-LICENSE"):
+            destination = stage / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / relative, destination)
+            relative_inputs.append(relative)
+        result = subprocess.run(
+            ["roc", "bundle", *relative_inputs, "--output-dir", str(output_dir)],
+            cwd=stage,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
     print(result.stdout, end="")
     if result.returncode != 0:
         raise RuntimeError(f"roc bundle exited with {result.returncode}")
@@ -108,7 +118,7 @@ def bundle_platform(output_dir: Path) -> Path:
         raise RuntimeError("Could not identify the bundle path in roc bundle output")
     bundle = Path(matches[0])
     if not bundle.is_absolute():
-        bundle = (PLATFORM / bundle).resolve()
+        bundle = (stage / bundle).resolve()
     if not bundle.is_file():
         raise RuntimeError(f"roc bundle reported a missing output: {bundle}")
     return bundle

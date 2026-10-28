@@ -4,23 +4,21 @@ A command-line Roc platform with a Go host. It provides command-line arguments,
 stdin, stdout, stderr, process exit codes, and Roc runtime allocation and
 diagnostic hooks.
 
-The platform builds for Linux musl, macOS, and Windows MinGW on x86-64 and ARM64.
-CI executes applications natively on Linux and macOS for both architectures and
-on x86-64 Windows. ARM64 Windows builds are cross-linked and format-checked.
+The platform supports Linux musl and macOS on x86-64 and ARM64, and Windows
+MinGW on x86-64. CI executes applications natively on every supported OS and
+architecture. Windows ARM64 is not supported.
 
 ## Run an example
 
-Install these contributor toolchains:
+Install these contributor tools (Blueprint provisions locked Go and Zig):
 
-- The Go version in [`.go-version`](.go-version)
-- Zig 0.16.0
 - The latest [Roc nightly](https://github.com/roc-lang/nightlies/releases/latest)
 - [Blueprint 0.8.0](https://github.com/lukewilliamboswell/roc-blueprint/releases/tag/0.8.0)
 - Python 3.11 or newer
 - GitHub CLI with `gh attestation verify` and source/signer digest verification
 
 From the repository root, fetch the authenticated runtime dependency and build
-the native Go host:
+the Go hosts:
 
 ```console
 blueprint run fetch-runtime
@@ -122,5 +120,5 @@ covers Intel macOS and baseline CPU variants. Compatibility failure calls for a
 source fix and a new platform release; the nightly never edits source or pins.
 
 [`release.yml`](.github/workflows/release.yml) validates a selected `main` commit,
-then publishes the same tested platform bundle and examples ZIP, with provenance
-and checksums. See [contributing](CONTRIBUTING.md) for the release procedure.
+then publishes the same tested platform bundle and examples ZIP, with provenance, checksums, and artifact-bound SPDX 3.0.1 and CycloneDX 1.7
+inventories. See [contributing](CONTRIBUTING.md) for the release procedure.

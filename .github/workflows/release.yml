@@ -35,6 +35,7 @@ jobs:
           subject-path: |
             candidate/release/*.tar.zst
             candidate/release/*.zip
+            candidate/release/*.json
       - uses: lukewilliamboswell/roc-automation/actions/publish-release@a25b5129340b9b2ad1744d20330b8ee4d38a1849
         with:
           version: ${{ inputs.version }}
@@ -43,5 +44,6 @@ jobs:
           assets: |
             candidate/release/*.tar.zst
             candidate/release/*.zip
+            candidate/release/*.json
             candidate/release/SHA256SUMS
           target: ${{ github.sha }}
