@@ -1,0 +1,49 @@
+name: Release platform
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Final product version (for example 0.1.0)
+        type: string
+        required: true
+permissions: {}
+concurrency:
+  group: platform-release
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+    with:
+      release_version: ${{ inputs.version }}
+  publish:
+    needs: validate
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: apps-linux-x64
+          path: candidate
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
+        with:
+          subject-path: |
+            candidate/release/*.tar.zst
+            candidate/release/*.zip
+            candidate/release/*.json
+      - uses: lukewilliamboswell/roc-automation/actions/publish-release@a25b5129340b9b2ad1744d20330b8ee4d38a1849
+        with:
+          version: ${{ inputs.version }}
+          prerelease: 'false'
+          notes-file: candidate/release/release-notes.md
+          assets: |
+            candidate/release/*.tar.zst
+            candidate/release/*.zip
+            candidate/release/*.json
+            candidate/release/SHA256SUMS
+          target: ${{ github.sha }}

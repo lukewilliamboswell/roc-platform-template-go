@@ -1,5 +1,12 @@
 # Third-party licenses
 
+## Go runtime and standard library
+
+The platform host archives contain the Go 1.27.0 runtime and standard library,
+built from the Go distribution locked by `Blueprint.lock`. Go is BSD-3-Clause
+licensed; its notice is in [`licenses/go-LICENSE`](licenses/go-LICENSE), included
+in each platform bundle. Host source is licensed under this project's UPL-1.0.
+
 The files below are supplied as static-link inputs in the runtime release and installed under
 `platform/targets/{x64musl,x64v1musl,arm64musl,arm64v1musl}/`:
 

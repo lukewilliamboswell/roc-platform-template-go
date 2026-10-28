@@ -2,35 +2,38 @@
 
 ## Toolchains
 
-Use the Go version in `.go-version`, the Roc version in the `platform/main.roc`
-header, and Zig 0.16.0. CI verifies that all headers selected in
-`.github/roc-nightly.json` agree. Do not update a pin incidentally.
+Install Blueprint 0.8.0, Python 3.11 or newer, GitHub CLI and the latest Roc
+nightly. `Blueprint.roc` declares Go 1.27.0 and Zig 0.16.0; `Blueprint.lock`
+records the exact downloads. The supported Blueprint development environments
+are Linux x64/ARM64 and Apple Silicon macOS. Native Windows and Intel macOS
+consumers need only Roc and Python to test a release archive.
 
-All repository automation lives in `scripts/` and is Python. Keep commands
-cross-platform unless a script is explicitly a maintainer-only tool for a
-target-specific artifact, such as Linux runtime vendoring.
+The bare `roc` is the product compiler. Do not add a `roc` field to the platform,
+examples or `Blueprint.roc`, or add `.roc-version` or `.github/roc-nightly.json`.
+CI resolves the latest nightly once and passes that exact version to every job.
+Go and Zig toolchain changes require review of `Blueprint.roc`, `.go-version`,
+`host/go.mod`, the build script's requirements and the generated lock together.
 
-## Nightly compiler updates
+## Nightly compatibility
 
-The updater runs daily at 13:31 UTC and can also be dispatched manually. It
-changes only the compiler pins selected in `.github/roc-nightly.json` and
-automatically merges verified bot updates after all configured CI passes on the
-current main base. Branch protection remains enforced. If main or the candidate
-moves, rerun the updater to refresh and revalidate the PR.
+The scheduled shared nightly checks the latest immutable platform release on
+the latest nightly. It does not rebuild a host, edit headers, open updater PRs,
+or merge. Diagnose failures using its per-target artifacts, fix the working
+tree in a PR, and publish a new release after validation. Manual selector inputs
+reproduce historical pairs; leave both empty to refresh current compatibility.
 
-Reserve `automation/roc-nightly` for the bot. Put source fixes, runtime dependency
-updates, and platform URL changes in separate PRs; do not weaken tests to accept
-a nightly. See the [upstream integration guide](https://github.com/lukewilliamboswell/roc-automation/blob/b60d561cbd53c911b29238b30624827f8487113a/docs/integration.md)
-for controller setup and permissions.
+See the [upstream platform guide](https://lukewilliamboswell.github.io/roc-automation/platforms.html)
+and [shared nightly contract](https://lukewilliamboswell.github.io/roc-automation/nightly-compatibility.html).
 
 ## Before opening a change
 
 ```console
-python scripts/fetch_runtime.py
-python scripts/build.py --all
-go -C host test ./...
-python scripts/check_roc_format.py
-python scripts/test.py --operation all --verbose
+blueprint run fetch-runtime
+blueprint run build-host
+blueprint run test-host
+blueprint run check
+blueprint run check-glue
+blueprint run test-examples
 roc docs platform/main.roc --output=generated-docs --no-cache
 ```
 
@@ -41,26 +44,15 @@ checks committed release URLs. Keep these validation inputs distinct.
 ## Examples and test specifications
 
 Every application root (`examples/*/main.roc`) must have exactly one entry in
-`scripts/test_spec.json`. Companion modules and input files stay in that folder. All four stages—`check`, `test`, `build`, and
+`tests/spec.json`. Companion modules and input files stay in that folder. All four stages—`check`, `test`, `build`, and
 `run`—are enabled by default. Add multiple cases when arguments, stdin, exit
 codes, streams, or boundary-sized values change behavior.
 
-If an upstream bug makes a skip unavoidable, disable the smallest possible
-scope and include machine-readable metadata beside it:
-
-```json
-{
-  "stages": { "build": false },
-  "skip_reasons": {
-    "build": {
-      "reason": "Concise description of the observed compiler failure",
-      "issue": "https://github.com/roc-lang/roc/issues/NNNN"
-    }
-  }
-}
-```
-
-The runner rejects unexplained skips and non-GitHub issue links.
+Use the shared schema version 1 with `release: "working-tree"`, no release
+dependencies, and explicit case names, arguments, stdin, stdout, stderr and exit
+codes. Keep all cases runnable. The same cases travel in the immutable examples
+archive with its release version and bundle URL; release testing compares exact
+streams and exits. A skipped case cannot establish compatibility.
 
 ## Roc ABI changes
 
@@ -68,12 +60,11 @@ The runner rejects unexplained skips and non-GitHub issue links.
 Roc. When hosted functions or platform types change, regenerate it with:
 
 ```console
-python scripts/generate_c_glue.py
+blueprint run update-glue
 ```
 
-The generator reads the `roc` header in `platform/main.roc`, verifies that the active `roc` executable
-comes from that nightly, and downloads `CGlue.roc` from the same immutable Roc
-revision. CI runs `python scripts/generate_c_glue.py --check` to reject stale
+The generator reads the active compiler revision from `roc version` and downloads
+`CGlue.roc` from that exact revision. CI runs `blueprint run check-glue` to reject stale
 bindings. For offline compiler development, pass `--glue-spec` with
 `CGlue.roc` from an exact matching Roc source checkout.
 
@@ -93,7 +84,7 @@ Linker inputs are released separately from Go hosts and platform packages.
 Follow [LINKER_INPUTS.md](LINKER_INPUTS.md) to review trusted source changes and
 publish a content-addressed PR build. The trusted publisher adds the reviewed
 lock; routine CI consumes that release and never regenerates these inputs.
-Nightly pin updates do not rebuild linker inputs.
+Compiler compatibility checks do not rebuild linker inputs.
 Use `python scripts/fetch_runtime.py` before building platform bundles.
 Keep license notices and source/SBOM inventory accurate. Never commit generated
 runtime or host binaries or overwrite an existing release.
@@ -107,14 +98,13 @@ them as `x64win` or `arm64win`; those are MSVC targets with different startup,
 runtime, and linker requirements.
 
 The MinGW targets require a Roc nightly containing
-[roc-lang/roc#10637](https://github.com/roc-lang/roc/pull/10637). Keep Windows
-producer and consumer lanes enabled when updating the `roc` header in `platform/main.roc`, and validate
-both Windows architectures even when only x86-64 can be run natively in CI.
+[roc-lang/roc#10637](https://github.com/roc-lang/roc/pull/10637). Keep Windows consumer lanes enabled when changing the compiler or host. Windows
+ARM64 remains unsupported.
 
 ## Review checklist
 
 - Every example passes every stage through a served fresh bundle.
-- Roc source is formatted by the pinned compiler.
+- Roc source is formatted by the resolved latest nightly.
 - Go tests pass and cover any ABI/memory-layout change.
 - All supported hosts and all example/target combinations cross-compile.
 - Native consumers execute artifacts from every producer OS.
@@ -122,42 +112,36 @@ both Windows architectures even when only x86-64 can be run natively in CI.
 - README commands work from a clean checkout.
 - Runtime provenance and third-party notices remain accurate.
 
-## Release checklist
+## Release procedure
 
-`main` is the development branch. No platform release or stable compiler support line has
-been published. Package versions are independent of compiler versions. Start with
-an explicitly documented exact-nightly bootstrap release; create a compiler
-compatibility branch only when a second support line is needed. Release preparation,
-publication, backports, and URL follow-ups remain manual.
+Product versions are independent of compiler versions. A release is an immutable
+platform bundle and a complete examples ZIP. Never rewrite committed example
+URLs after publication: only the archived copies name the release.
 
-1. Select a reviewed commit and record its SHA and header compiler pin. Build all
-   hosts and run the full cross-builder CI on that commit. Generate the bundle
-   with `python scripts/bundle.py --output-dir dist`.
-2. Test that exact archive with `python scripts/test.py --bundle dist/HASH.tar.zst
-   --operation all --verbose` on supported native systems. Keep its SHA-256 and
-   the CI evidence. Do not rebuild from a moving branch after validation.
-3. Prepare a starter with a complete example folder, the intended immutable
-   platform URL, compiler pin, setup instructions, and relevant license notices.
-   Validate a temporary copy against the candidate archive before publication.
-4. Tag the tested SHA with a new package version and publish those same artifacts.
-   Include compiler requirements and archive digests in release notes. If a
-   partial publication fails, inspect existing tags/assets and resume using the
-   preserved artifacts; never overwrite a published release.
-5. Update public example URLs and README release links in a reviewed follow-up,
-   preserving development compiler pins. Test the downloads from a fresh compiler
-   cache using `python scripts/test.py --published --operation all --verbose`.
-   This mode refuses local platform paths and never rewrites committed headers.
-6. At that first URL update, add a separately named published-examples CI job on
-   supported native runners. Use a fresh cache, install the declared compiler, and
-   run the published command above. Keep it in `ci.yml`, which the nightly
-   controller dispatches alongside the current-source jobs. Both lanes must pass
-   compiler-only and combined compiler/source changes. Do not substitute a local
-   archive to make published validation pass.
-7. Generate versioned documentation from the release and retain earlier version
-   URLs. Keep rendered docs in release/deployment artifacts. Validate the exact
-   follow-up PR SHA and required checks before merging; sign its commit if branch
-   policy requires it. This repository has no automated release follow-up.
+1. Review `docs/releases/0.1.0.md` (use version-specific notes for subsequent
+   releases), the source, bindings and linker-input lock. Merge only after the
+   PR's required `CI result` passes on the current main base.
+2. Dispatch `Release platform` from `main` with the final version. It resolves
+   one nightly, builds the host once, bundles once, packages the examples, and
+   validates the same bundle/ZIP on all eight native target lanes. No rebuild
+   occurs between validation and publication.
+3. The publish job attests the exact bundle and examples, stages a draft through
+   the shared publisher, verifies the uploaded bytes, then publishes. Keep tags
+   and assets immutable. A partial publication must be recovered using the
+   preserved candidate; never rebuild or overwrite a final release.
+4. Dispatch `Nightly compatibility` on `main` with both selectors empty. Require
+   every shared native runner and the aggregate verdict to pass. Intel macOS
+   and baseline CPU variants have additional release CI coverage beyond that
+   shared runner matrix.
+5. Verify the release download from a fresh cache and retain the workflow run
+   links and compiler identity from the authored release notes. The dashboard
+   refreshes in roc-automation's Documentation deployment; development CI alone
+   is not published compatibility evidence.
 
-The published lane cannot provide evidence until the first platform release exists; the
-current CI validates source bundles only. Keep this limitation visible during
-bootstrap instead of treating source tests as proof of download compatibility.
+For a local dry run after building hosts:
+
+```console
+blueprint run bundle -- --output-dir dist
+blueprint run package-release -- --bundle dist/HASH.tar.zst --version 0.1.0-dev
+blueprint run test-release -- --bundle dist/HASH.tar.zst --archive dist/roc-platform-template-go-examples-0.1.0-dev.zip
+```

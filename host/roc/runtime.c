@@ -3,6 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
+
 typedef struct AllocationHeader {
     void *base;
     size_t length;
@@ -62,6 +67,11 @@ void *roc_realloc(void *ptr, size_t new_length, size_t alignment) {
 }
 
 static void diagnostic(const char *prefix, const uint8_t *bytes, size_t len) {
+#ifdef _WIN32
+    // Match Go's byte-oriented stderr and preserve Roc diagnostic bytes.
+    // The CRT's default text mode would otherwise rewrite LF to CRLF.
+    _setmode(_fileno(stderr), _O_BINARY);
+#endif
     fwrite(prefix, 1, strlen(prefix), stderr);
     fwrite(bytes, 1, len, stderr);
     fputc('\n', stderr);

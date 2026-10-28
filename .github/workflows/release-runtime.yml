@@ -35,7 +35,7 @@ jobs:
       - name: Package deterministic candidate
         run: python scripts/package_runtime.py --targets-dir ci-output/linker-input-targets --output-dir ci-output/linker-input-dist --version 0.1.0
       - run: git diff --exit-code
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: linker-inputs-${{ matrix.replica }}
           path: ci-output/linker-input-dist
@@ -48,7 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: {persist-credentials: false}
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with: {pattern: "linker-inputs-*", path: replicas}
       - id: compare
         run: python scripts/runtime_release.py compare --left replicas/linker-inputs-a --right replicas/linker-inputs-b
@@ -69,13 +69,13 @@ jobs:
         if: inputs.release_candidate
         env: {EXPECTED_SHA: "${{ inputs.expected_sha }}"}
         run: test -n "$EXPECTED_SHA" && test "$EXPECTED_SHA" = "$GITHUB_SHA"
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with: {name: linker-inputs-a, path: linker-input-dist}
       - run: python scripts/build_input_release.py --source linker-input-dist --output release
       - if: inputs.release_candidate
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
         with: {subject-path: "release/*"}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: link-input-release
           path: release/*
