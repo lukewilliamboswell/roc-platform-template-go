@@ -1,5 +1,6 @@
 """Release regressions: preserve example bytes and reject unsafe archives."""
 import json
+import hashlib
 from pathlib import Path
 import tempfile
 import unittest
@@ -7,7 +8,7 @@ from unittest.mock import patch
 import zipfile
 
 import package_release
-from test_release import test_archive
+from test_release import test_archive, verify_release_assets
 
 
 class ReleasePackagingTests(unittest.TestCase):
@@ -42,6 +43,30 @@ class ReleasePackagingTests(unittest.TestCase):
                 self.assertEqual(published['release'], '0.1.0')
             self.assertEqual((app / 'main.roc').read_text(), source)
             self.assertEqual((root / 'release/ABC.tar.zst').read_bytes(), bundle.read_bytes())
+
+    def test_manifest_rejects_replaced_inventory_even_with_updated_checksums(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            asset = directory / 'platform.zip'
+            inventory = directory / 'platform.zip.inventory.json'
+            sidecar = directory / 'platform.zip.spdx.json'
+            asset.write_bytes(b'tested platform')
+            inventory.write_bytes(b'{"components":[]}')
+            sidecar.write_bytes(b'{"version":"original"}')
+            digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+            manifest = dict(subject=dict(filename=asset.name, sha256=digest(asset), size=asset.stat().st_size),
+                            inventory_sha256=digest(inventory),
+                            sidecars=[dict(filename=sidecar.name, sha256=digest(sidecar), size=sidecar.stat().st_size)])
+            (directory / 'platform.zip.sbom-manifest.json').write_text(json.dumps(manifest))
+            def checksums():
+                files = sorted(path for path in directory.iterdir() if path.name != 'SHA256SUMS')
+                (directory / 'SHA256SUMS').write_text(''.join(f'{digest(path)}  {path.name}\n' for path in files))
+            checksums()
+            verify_release_assets(directory)
+            inventory.write_bytes(b'{"components":["replacement"]}')
+            checksums()
+            with self.assertRaisesRegex(ValueError, 'inventory binding'):
+                verify_release_assets(directory)
 
     def test_release_validation_rejects_archive_traversal(self):
         with tempfile.TemporaryDirectory() as temporary:

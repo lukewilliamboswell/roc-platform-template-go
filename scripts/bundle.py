@@ -94,7 +94,10 @@ def bundle_platform(output_dir: Path) -> Path:
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, destination)
             relative_inputs.append(relative.as_posix())
-        for relative in ("LICENSE", "THIRD_PARTY_LICENSES.md", "licenses/go-LICENSE"):
+        notices = ["LICENSE", "THIRD_PARTY_LICENSES.md"] + [
+            path.relative_to(ROOT).as_posix() for path in sorted((ROOT / "licenses").rglob("*")) if path.is_file()
+        ]
+        for relative in notices:
             destination = stage / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / relative, destination)

@@ -68,9 +68,10 @@ in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Linker inputs are release assets and are not tracked in the source tree.
 [`link-inputs.lock.json`](link-inputs.lock.json) pins the content-addressed release,
-archive digest, and signing/source identities. The fetcher verifies
-provenance and SBOM attestations, the archive checksum, and the complete file
-inventory before installing inputs under `platform/targets/`.
+archive digest, and signing/source identities. The trusted publisher admits
+provenance and the exact producer artifacts before writing this lock. Routine fetches verify the locked archive size and SHA-256
+and the complete file inventory, including after a cache hit, before installing
+inputs under `platform/targets/`. They make no attestation API calls.
 
 Linker-input releases are built independently from the checksum-pinned sources in
 [`scripts/runtime_sources.json`](scripts/runtime_sources.json). Two clean CI
