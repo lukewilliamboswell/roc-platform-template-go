@@ -1,0 +1,313 @@
+{
+  "schema_version": 1,
+  "release": "working-tree",
+  "dependencies": [],
+  "apps": [
+    {
+      "path": "examples/cli_args/main.roc",
+      "cases": [
+        {
+          "name": "uses-default-addressee",
+          "args": [],
+          "stdin": "",
+          "stdout": "Hello, Roc developer!\n",
+          "stderr": "",
+          "exit_code": 0
+        },
+        {
+          "name": "greets-every-provided-name",
+          "args": [
+            "Ana",
+            "Bo"
+          ],
+          "stdin": "",
+          "stdout": "Hello, Ana, Bo!\n",
+          "stderr": "",
+          "exit_code": 0
+        },
+        {
+          "name": "preserves-unicode-names",
+          "args": [
+            "Zoë",
+            "中"
+          ],
+          "stdin": "",
+          "stdout": "Hello, Zoë, 中!\n",
+          "stderr": "",
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "path": "examples/hello_world/main.roc",
+      "cases": [
+        {
+          "name": "prints-greeting",
+          "args": [],
+          "stdin": "",
+          "stdout": "Hello, World!\n",
+          "stderr": "",
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "path": "examples/fizzbuzz/main.roc",
+      "cases": [
+        {
+          "name": "uses-default-limit",
+          "args": [],
+          "stdin": "",
+          "stdout": "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz\n",
+          "stderr": "",
+          "exit_code": 0
+        },
+        {
+          "name": "accepts-explicit-limit",
+          "args": [
+            "5"
+          ],
+          "stdin": "",
+          "stdout": "1\n2\nFizz\n4\nBuzz\n",
+          "stderr": "",
+          "exit_code": 0
+        },
+        {
+          "name": "rejects-non-numeric-limit",
+          "args": [
+            "many"
+          ],
+          "stdin": "",
+          "stdout": "",
+          "stderr": "ERROR: InvalidLimit(\"many\")\n",
+          "exit_code": 1
+        },
+        {
+          "name": "rejects-limit-below-range",
+          "args": [
+            "0"
+          ],
+          "stdin": "",
+          "stdout": "",
+          "stderr": "ERROR: LimitTooSmall(0)\n",
+          "exit_code": 1
+        },
+        {
+          "name": "rejects-limit-above-range",
+          "args": [
+            "101"
+          ],
+          "stdin": "",
+          "stdout": "",
+          "stderr": "ERROR: LimitTooLarge(101)\n",
+          "exit_code": 1
+        }
+      ]
+    },
+    {
+      "path": "examples/match/main.roc",
+      "cases": [
+        {
+          "name": "defaults-to-pending",
+          "args": [],
+          "stdin": "",
+          "stdout": "Order is waiting to be processed.\n",
+          "stderr": "",
+          "exit_code": 0
+        },
+        {
+          "name": "matches-known-status",
+          "args": [
+            "shipped"
+          ],
+          "stdin": "",
+          "stdout": "Order is on its way.\n",
+          "stderr": "",
+          "exit_code": 0
+        },
+        {
+          "name": "reports-unknown-status",
+          "args": [
+            "delayed"
+          ],
+          "stdin": "",
+          "stdout": "Unknown order status: delayed\n",
+          "stderr": "",
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "path": "examples/stderr/main.roc",
+      "cases": [
+        {
+          "name": "keeps-output-streams-separate",
+          "args": [],
+          "stdin": "",
+          "stdout": "This message goes to stdout\nYou can redirect it with: roc run example.roc > out.txt\n",
+          "stderr": "This message goes to stderr\nYou can redirect it with: roc run example.roc 2> err.txt\n",
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "path": "examples/sum_fold/main.roc",
+      "cases": [
+        {
+          "name": "uses-default-numbers",
+          "args": [],
+          "stdin": "",
+          "stdout": "Numbers: 1, 2, 3\nTotal: 6\n",
+          "stderr": "",
+          "exit_code": 0
+        },
+        {
+          "name": "folds-positive-and-negative-numbers",
+          "args": [
+            "10",
+            "-3",
+            "5"
+          ],
+          "stdin": "",
+          "stdout": "Numbers: 10, -3, 5\nTotal: 12\n",
+          "stderr": "",
+          "exit_code": 0
+        },
+        {
+          "name": "rejects-invalid-number",
+          "args": [
+            "10",
+            "many",
+            "5"
+          ],
+          "stdin": "",
+          "stdout": "",
+          "stderr": "ERROR: InvalidNumber(\"many\")\n",
+          "exit_code": 1
+        }
+      ]
+    },
+    {
+      "path": "examples/custom_error/main.roc",
+      "cases": [
+        {
+          "name": "renders-default-domain-error",
+          "args": [],
+          "stdin": "",
+          "stdout": "",
+          "stderr": "ERROR: ApplicationError(the operation failed)\n",
+          "exit_code": 1
+        },
+        {
+          "name": "returns-success",
+          "args": [
+            "success"
+          ],
+          "stdin": "",
+          "stdout": "The operation completed successfully.\n",
+          "stderr": "",
+          "exit_code": 0
+        },
+        {
+          "name": "renders-context-for-unknown-command",
+          "args": [
+            "maybe"
+          ],
+          "stdin": "",
+          "stdout": "",
+          "stderr": "ERROR: ApplicationError(unknown command \"maybe\"; expected \"success\" or \"failure\")\n",
+          "exit_code": 1
+        }
+      ]
+    },
+    {
+      "path": "examples/echo/main.roc",
+      "cases": [
+        {
+          "name": "echoes-one-line",
+          "args": [],
+          "stdin": "Roc\n",
+          "stdout": "Enter something and I'll echo it back:\nYou entered: Roc\n",
+          "stderr": "",
+          "exit_code": 0
+        },
+        {
+          "name": "reports-end-of-input",
+          "args": [],
+          "stdin": "",
+          "stdout": "Enter something and I'll echo it back:\nNo input received.\n",
+          "stderr": "",
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "path": "examples/echo_multiline/main.roc",
+      "cases": [
+        {
+          "name": "echoes-multiple-lines",
+          "args": [],
+          "stdin": "line one\nline two\nline three\n",
+          "stdout": "line one\nline two\nline three\n",
+          "stderr": "",
+          "exit_code": 0
+        },
+        {
+          "name": "accepts-empty-input",
+          "args": [],
+          "stdin": "",
+          "stdout": "",
+          "stderr": "",
+          "exit_code": 0
+        },
+        {
+          "name": "echoes-final-line-without-newline",
+          "args": [],
+          "stdin": "last line",
+          "stdout": "last line\n",
+          "stderr": "",
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "path": "examples/tests/main.roc",
+      "cases": [
+        {
+          "name": "prints-test-instructions",
+          "args": [],
+          "stdin": "",
+          "stdout": "Run 'roc test --verbose examples/tests/main.roc' to execute the tests\n",
+          "stderr": "",
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "path": "examples/dbg_test/main.roc",
+      "cases": [
+        {
+          "name": "separates-debug-output",
+          "args": [],
+          "stdin": "",
+          "stdout": "stdout works\n",
+          "stderr": "[ROC DBG] \"test message\"\n",
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "path": "examples/all_roc_syntax/main.roc",
+      "cases": [
+        {
+          "name": "runs-syntax-tour",
+          "args": [],
+          "stdin": "",
+          "stdout": "Hello, world!\nHello, world! (using alias)\n{ default: 0, diff: 5, div: 2, div_trunc: 2, eq: False, gt: True, gteq: True, lt: False, lteq: False, neg: -10, neq: True, prod: 50, rem: 0, sum: 15 }\n{ bool_and_keyword: False, bool_or_keyword: True, not_a: False }\n\"One Two\"\n\"Three Four\"\nThe color is red.\n78\nSuccess\nLine 1\nLine 2\nLine 3\nUnicode escape sequence:  \nThis is an effectful function!\nOk(42)\n15.0\nFalse\n10.0\n42\nNotOneTwoNotFive\n(\"Roc\", 1.0)\n[\"a\", \"b\"]\n(\"Roc\", 1, 1, \"Roc\")\n10.0\n{ age: 31, name: \"Alice\" }\n{ binary: 5.0, explicit_i128: 5, explicit_i16: 5, explicit_i32: 5, explicit_i64: 5, explicit_i8: 5, explicit_u128: 5, explicit_u16: 5, explicit_u32: 5, explicit_u64: 5, explicit_u8: 5, hex: 5.0, octal: 5.0, usage_based: 5.0 }\n<opaque>\n\"The secret key is: my_secret_key\"\nFalse\n99\n\"12345.0\"\n\"Foo with 42 and hello\"\n\"other color\"\n\"A\"\n\"other letter\"\n",
+          "stderr": "",
+          "exit_code": 0
+        }
+      ]
+    }
+  ]
+}

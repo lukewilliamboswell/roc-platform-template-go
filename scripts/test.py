@@ -21,12 +21,10 @@ import urllib.parse
 from pathlib import Path, PurePosixPath
 
 from bundle import bundle_platform
-from compiler_pins import read_pin
-from generate_c_glue import require_pinned_roc
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC_PATH = ROOT / "scripts" / "test_spec.json"
+SPEC_PATH = ROOT / "tests" / "spec.json"
 STAGES = ("check", "test", "build", "run")
 SUPPORTED_TARGETS = (
     "x64mac",
@@ -300,8 +298,17 @@ def case_enabled(source: Path, case: dict[str, object]) -> bool:
 
 def load_spec(examples_dir: Path) -> tuple[dict[str, bool], list[dict[str, object]]]:
     data = json.loads(SPEC_PATH.read_text(encoding="utf-8"))
-    defaults = data.get("stages")
+    if data.get("schema_version") != 1 or data.get("release") != "working-tree" or data.get("dependencies") != []:
+        raise TestFailure(f"{SPEC_PATH}: expected the shared working-tree suite contract")
+    defaults = dict.fromkeys(STAGES, True)
     apps = data.get("apps")
+    for app in apps or []:
+        for case in app.get("cases", []):
+            required = {"name", "args", "stdin", "stdout", "stderr", "exit_code"}
+            if set(case) != required:
+                raise TestFailure(f"{app.get('path')}: cases require explicit shared suite fields")
+            case["stdout_equals"] = case.pop("stdout")
+            case["stderr_equals"] = case.pop("stderr")
     if not isinstance(defaults, dict) or set(defaults) != set(STAGES):
         raise TestFailure(f"{SPEC_PATH}: stages must define {', '.join(STAGES)}")
     if not all(isinstance(defaults[name], bool) for name in STAGES):
@@ -609,7 +616,7 @@ def build_app(
     build_args = require_string_list(
         f"{source} build_args", app.get("build_args", [])
     )
-    args = ["roc", "build", str(source), f"--output={binary}"]
+    args = ["roc", "build", str(source), f"--output={binary}", "--opt=dev"]
     if target is not None:
         args.append(f"--target={target}")
     args.extend(build_args)
@@ -960,10 +967,6 @@ def main() -> None:
         _, apps = load_spec(examples_dir)
         for app in apps:
             source = source_path(app, examples_dir)
-            pin = read_pin(source)
-            if not pin or not pin.startswith("nightly-"):
-                raise TestFailure(f"{source}: an exact nightly header pin is required")
-            require_pinned_roc(pin.rsplit("-", 1)[1])
             contents = source.read_text(encoding="utf-8")
             if re.search(r'\bplatform\s+"https://github\.com/[^/]+/[^/]+/releases/download/[^/]+/[^"/]+\.tar\.zst"', contents) is None:
                 raise TestFailure(f"{source}: published validation requires an immutable release URL")

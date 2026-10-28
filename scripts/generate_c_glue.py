@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate or verify the C host ABI with the repository-pinned Roc nightly."""
+"""Generate or verify the C host ABI with the active Roc compiler."""
 
 from __future__ import annotations
 
@@ -13,40 +13,23 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from export_roc_version import pinned_tag
 
 
 ROOT = Path(__file__).resolve().parents[1]
 PLATFORM_FILE = ROOT / "platform" / "main.roc"
 OUTPUT_FILE = ROOT / "host" / "roc" / "roc_platform_abi.h"
-PIN_PATTERN = re.compile(
-    r"nightly-\d{4}-(?:[A-Za-z]+|\d{2})-\d{1,2}-(?P<revision>[0-9a-f]{7,40})"
-)
 ROC_REVISION_PATTERN = re.compile(r"\b[0-9a-f]{7,40}\b")
 
 
-def pinned_revision() -> tuple[str, str]:
-    tag = pinned_tag()
-    match = PIN_PATTERN.fullmatch(tag)
-    if match is None:
-        raise SystemExit(f"invalid Roc nightly tag in compiler headers: {tag!r}")
-    return tag, match.group("revision")
-
-
-def require_pinned_roc(expected_revision: str) -> str:
+def active_revision() -> tuple[str, str]:
     try:
         version = subprocess.check_output(["roc", "version"], text=True).strip()
-    except FileNotFoundError as error:
-        raise SystemExit("roc is not installed or is not on PATH") from error
-    except subprocess.CalledProcessError as error:
+    except (FileNotFoundError, subprocess.CalledProcessError) as error:
         raise SystemExit("failed to read the active Roc compiler version") from error
-
     revisions = ROC_REVISION_PATTERN.findall(version.lower())
-    if not any(revision.startswith(expected_revision) for revision in revisions):
-        raise SystemExit(
-            f"Roc nightly {expected_revision} is required; found {version!r}"
-        )
-    return version
+    if len(revisions) != 1:
+        raise SystemExit(f"cannot identify the active Roc source revision: {version!r}")
+    return version, revisions[0]
 
 
 def download_glue_spec(revision: str, destination: Path) -> str:
@@ -59,7 +42,7 @@ def download_glue_spec(revision: str, destination: Path) -> str:
         with urllib.request.urlopen(request, timeout=30) as response:
             destination.write_bytes(response.read())
     except (OSError, urllib.error.URLError) as error:
-        raise SystemExit(f"failed to download pinned CGlue.roc from {url}: {error}")
+        raise SystemExit(f"failed to download matching CGlue.roc from {url}: {error}")
     return url
 
 
@@ -111,8 +94,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    tag, revision = pinned_revision()
-    version = require_pinned_roc(revision)
+    version, revision = active_revision()
 
     # Roc cleans stale `roc-*` directories in the system temp directory, so
     # keep this workspace outside that namespace while the compiler runs.
@@ -128,7 +110,7 @@ def main() -> None:
             glue_source = str(glue_spec)
 
         generated = generate(glue_spec, temporary_dir / "generated")
-        print(f"Using pinned Roc nightly: {tag} ({version})")
+        print(f"Using Roc compiler: {version}")
         print(f"Using C glue spec: {glue_source}")
 
         if args.check:

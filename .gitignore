@@ -20,3 +20,6 @@ platform/targets/*/host.h
 /platform/runtime/
 
 /platform/targets/
+
+/.blueprint/
+/platform/linker-inputs/

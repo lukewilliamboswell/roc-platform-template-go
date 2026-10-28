@@ -14,7 +14,8 @@ Install these contributor toolchains:
 
 - The Go version in [`.go-version`](.go-version)
 - Zig 0.16.0
-- The exact Roc nightly in the `roc` header of [`platform/main.roc`](platform/main.roc)
+- The latest [Roc nightly](https://github.com/roc-lang/nightlies/releases/latest)
+- [Blueprint 0.8.0](https://github.com/lukewilliamboswell/roc-blueprint/releases/tag/0.8.0)
 - Python 3.11 or newer
 - GitHub CLI with `gh attestation verify` and source/signer digest verification
 
@@ -22,29 +23,30 @@ From the repository root, fetch the authenticated runtime dependency and build
 the native Go host:
 
 ```console
-python scripts/fetch_runtime.py
-python scripts/build.py
+blueprint run fetch-runtime
+blueprint run build-host
 roc examples/hello_world/main.roc
 ```
 
 Expected output: `Hello, World!`
 
-Examples currently use the local platform. The independently published,
-authenticated linker-input release contains the redistributable third-party
-linker inputs; a complete platform release
-containing the Go hosts has not been published yet. See the
-[platform release checklist](CONTRIBUTING.md#release-checklist).
+Repository examples use the working-tree platform by relative path and have no
+compiler pin. For a released starter, download the examples ZIP from the
+[latest platform release](https://github.com/lukewilliamboswell/roc-platform-template-go/releases/latest).
+Its examples name that release's immutable bundle; the source tree continues to
+use relative paths.
 
 ## Build, test, and package
 
 Build all supported hosts before running the suite or producing a platform bundle:
 
 ```console
-python scripts/fetch_runtime.py
-python scripts/build.py --all
-go -C host test ./...
-python scripts/test.py --operation all --verbose
-python scripts/bundle.py --output-dir dist
+blueprint run fetch-runtime
+blueprint run build-host
+blueprint run test-host
+blueprint run check
+blueprint run test-examples
+blueprint run bundle -- --output-dir dist
 ```
 
 For selected hosts, use `python scripts/build.py x64mac arm64musl`.
@@ -103,18 +105,22 @@ cross-linking; the macOS runtime itself is not redistributed.
 
 ## CI and nightly updates
 
-Six producer environments across macOS, Linux, and Windows authenticate the
-locked runtime release, build every Go host, and cross-compile all 12 example
-applications for all ten targets. Eight native consumer targets run all 27
-behavioral cases against every producer's output.
+One Linux builder uses the Go 1.27.0 and Zig 0.16.0 downloads locked in
+[`Blueprint.lock`](Blueprint.lock) to build every Go host and cross-compile all
+12 applications for all eight target variants. Eight native consumer lanes run
+all 27 recorded cases and separately check, link and run the exact release
+examples archive against that same bundle with an empty package cache.
 
-Artifact manifests record the compiler version, target, application checksums,
-platform bundle digest, and linker-input archive digest. CI also checks Go units,
-generated C bindings, Roc formatting, documentation, and the tracked-binary policy.
+CI resolves the latest nightly once for the whole run, verifies generated C
+bindings, runs Roc and Go tests, and checks formatting, documentation and the
+tracked-binary policy. Product headers do not select a compiler.
 
-Compiler pins live in the `roc` headers selected by
-[`.github/roc-nightly.json`](.github/roc-nightly.json). The daily updater changes
-only those pins and automatically merges verified bot updates after CI passes
-on the current main base. Runtime dependency and source changes have separate
-PRs. See [nightly update instructions](CONTRIBUTING.md#nightly-compiler-updates)
-for manual dispatch and retry behavior.
+[`nightly.yml`](.github/workflows/nightly.yml) runs roc-automation's shared
+compatibility workflow against the latest immutable platform release and latest
+nightly, on Linux x64/ARM64, Apple Silicon macOS and Windows x64. Release CI also
+covers Intel macOS and baseline CPU variants. Compatibility failure calls for a
+source fix and a new platform release; the nightly never edits source or pins.
+
+[`release.yml`](.github/workflows/release.yml) validates a selected `main` commit,
+then publishes the same tested platform bundle and examples ZIP, with provenance
+and checksums. See [contributing](CONTRIBUTING.md) for the release procedure.
