@@ -2,22 +2,22 @@
   "schema_version": 1,
   "kind": "roc-go-link-inputs",
   "repository": "lukewilliamboswell/roc-platform-template-go",
-  "release": "link-inputs-sha256-091d368183e8954483cd250be250613eee3c274cae0db2877049c1065b167ed8",
+  "release": "link-inputs-sha256-102e29a27d1b50073f8d48e31edd4e83764aa10fbfe1b550f7d7a234bdb5ee50",
   "manifest": {
     "asset": "build-input-release.json",
-    "sha256": "091d368183e8954483cd250be250613eee3c274cae0db2877049c1065b167ed8"
+    "sha256": "102e29a27d1b50073f8d48e31edd4e83764aa10fbfe1b550f7d7a234bdb5ee50"
   },
   "source": {
-    "input_fingerprint": "5778f25b49fda475b6455f3c0a1f56ce11adfdcfe427cd633430ef07f5641c27",
-    "ref": "refs/heads/adopt/content-addressed-link-inputs",
+    "input_fingerprint": "d676800b1ead49ab54c21140b42d3caafa9b307584638461608bfe6474a22b6d",
+    "ref": "refs/heads/automation/roc-nightly",
     "repository": "lukewilliamboswell/roc-platform-template-go",
-    "sha": "f218ae6d97b99cfbfdce486d6a508986e1158ceb",
+    "sha": "8b8a13664504cc999ea1483c3cf963bdecdd6d6d",
     "workflow": "lukewilliamboswell/roc-platform-template-go/.github/workflows/release-runtime.yml"
   },
   "targets": {
     "all": {
       "asset": "link-inputs-all.tar",
-      "sha256": "bd879c20cbd30b028c418ef7798f8fd72ea57276fecc12a03a9dc0b58e9fd41a",
+      "sha256": "b592de0ed80230115bf0eeeb843d07367c04ad14c77f803379f284ebdba21413",
       "size": 22630400
     }
   }

@@ -93,6 +93,8 @@ def bundle_platform(output_dir: Path) -> Path:
         ],
         cwd=PLATFORM,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         check=False,

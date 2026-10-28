@@ -10,7 +10,7 @@
     "_fprintf", "_fputc", "_free", "_fstat", "_fstat64", "_fstatat", "_fstatat64", "_fwrite", "_getcwd",
     "_getpid", "_getrlimit", "_issetugid", "_kevent", "_kill", "_kqueue", "_lseek",
     "_lstat", "_lstat64", "_mach_absolute_time", "_mach_timebase_info", "_madvise", "_malloc",
-    "_memcpy", "_memset", "_mlock", "_mmap", "_munmap", "_nanosleep", "_notify_is_valid_token", "_open",
+    "_memcpy", "_memmove", "_memset", "_mlock", "_mmap", "_munmap", "_nanosleep", "_notify_is_valid_token", "_open",
     "_pthread_attr_destroy", "_pthread_attr_getstacksize", "_pthread_attr_init",
     "_pthread_attr_setdetachstate", "_pthread_attr_setstacksize", "_pthread_cond_broadcast",
     "_pthread_cond_init", "_pthread_cond_signal", "_pthread_cond_timedwait_relative_np",
