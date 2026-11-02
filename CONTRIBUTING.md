@@ -1,5 +1,15 @@
 # Contributing
 
+## Documentation
+
+Every paragraph should help someone use, maintain or assess the current project.
+Delete superseded instructions and duplicate explanations. Keep implementation
+history in Git, unresolved work in issues, and release-specific changes on the
+published release; do not include release notes in the manual. Preserve current
+compatibility guidance, security boundaries, API contracts and required notices.
+
+Use the [shared documentation guide](https://lukewilliamboswell.github.io/roc-automation/documentation.html#write-project-documentation) for structure and publishing.
+
 ## Toolchains
 
 Install Blueprint 0.8.0, Python 3.11 or newer, GitHub CLI and the latest Roc

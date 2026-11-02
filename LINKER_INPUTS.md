@@ -35,5 +35,5 @@ python scripts/linker_inputs.py check
 Producer validation uses `stage ARCHIVE --sha256 DIGEST`; this unsigned path is
 limited to a same-run CI candidate and cannot publish. Routine PRs never rebuild
 these inputs: they restore the archive cache, rehash it, and download only on a
-verified cache miss. The old versioned releases remain immutable historical
-records, but routine consumers cannot select them as a fallback.
+verified cache miss. A missing or invalid locked release fails; consumers never select an older
+release as a fallback.

@@ -23,32 +23,12 @@ gzip has a fixed timestamp and no embedded filename. The existing object/archive
 normalization makes independent builds byte-identical. The archive and generated
 SPDX 2.3 SBOM must match across two clean GitHub-hosted builders.
 
-## Publish an independent linker-input release
+## Publish and adopt inputs
 
-Open a same-repository PR containing the material producer change. Its candidate
-workflow builds twice and runs the existing full validation matrix without write
-authority. From `main`, dispatch **Publish PR linker inputs** with the PR number.
-The controller is pinned to a reviewed roc-automation commit and:
-
-1. Dispatches the exact PR head and admits no other branch or workflow.
-2. Builds twice using isolated caches and the checksum-pinned Zig distribution.
-3. Compares archives and metadata byte-for-byte. The first `0.1.0` release must
-   match the original `scripts/runtime_bootstrap.sha256` binary baseline.
-4. Runs the full existing cross-builder and native application validation matrix
-   with the candidate archive. These jobs have read-only permissions.
-5. Attests the exact target archive and aggregate manifest.
-6. Verifies those attestations, publishes an immutable release identified by the
-   manifest hash, reads the assets back, and adds only `link-inputs.lock.json` as
-   a lease-guarded GitHub-signed commit to the still-open PR.
-
-The authority split is why producer code can release inputs before merge without
-being trusted with repository or release credentials: the default-branch
-controller executes no PR code and admits only the exact tested bytes.
-
-The release contains the target archive, attested aggregate manifest, and the
-publisher-generated consumer lock. Published releases must be immutable.
-
-Routine nightly and pull-request CI cannot publish or attest runtime releases.
+Follow [the linker-input procedure](LINKER_INPUTS.md) to review producer changes,
+validate the exact candidate, publish it through the trusted controller and
+adopt its signed content lock. Build and test jobs cannot publish. The
+publisher verifies inert candidate bytes and never executes candidate code.
 
 ## Consume and verify
 
