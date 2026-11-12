@@ -98,7 +98,7 @@ jobs:
       - run: blueprint check
 
       - name: Install resolved Roc nightly
-        uses: roc-lang/setup-roc@cbe782d6f165b89c87d99f50a59ac4f5f73b4427
+        uses: roc-lang/setup-roc@dd81390553b0a1236aedb61cdd4c0ed7cf7eaec4
         with:
           version: nightly-new-compiler
           nightly-tag: ${{ needs.compiler.outputs.tag }}
@@ -212,7 +212,7 @@ jobs:
           path: ci-artifacts/apps-linux-x64
 
       - name: Install the same resolved Roc nightly
-        uses: roc-lang/setup-roc@cbe782d6f165b89c87d99f50a59ac4f5f73b4427
+        uses: roc-lang/setup-roc@dd81390553b0a1236aedb61cdd4c0ed7cf7eaec4
         with:
           version: nightly-new-compiler
           nightly-tag: ${{ needs.compiler.outputs.tag }}
