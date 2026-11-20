@@ -15,6 +15,10 @@ attestations before publishing an immutable release and adding a GitHub-signed,
 lock-only commit to that same PR. The caller pins the reviewed controller by its
 full 40-character commit.
 
+Linux musl targets need static-PIE inputs: `rcrt1.o` relocates the executable
+before libc or Go constructors use it. Collect the startup object and the
+position-independent runtime archives from the same Zig probe link.
+
 The macOS `libSystem.tbd` is generated from
 `linker-inputs/macos/interfaces.json`. Neither generation nor packaging reads an
 Apple SDK, framework, library, or pre-existing TBD. Its catalog and provenance
