@@ -14,7 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 NAME = 'roc-platform-template-go'
 REPOSITORY = 'lukewilliamboswell/' + NAME
-AUTOMATION = 'a25b5129340b9b2ad1744d20330b8ee4d38a1849'
+AUTOMATION = 'acc5efdcd929b38e665cd3ae6e694d1c4887f9c7'
 
 
 def package(bundle: Path, version: str, output: Path) -> Path:

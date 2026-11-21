@@ -7,6 +7,10 @@ on:
         type: string
         required: false
         default: "0.1.0-dev"
+      nightly_tag:
+        type: string
+        required: false
+        default: ""
       runtime_candidate_artifact:
         type: string
         required: false
@@ -34,7 +38,7 @@ concurrency:
 
 jobs:
   compiler:
-    name: Resolve latest Roc nightly
+    name: Select Roc nightly
     runs-on: ubuntu-22.04
     outputs:
       tag: ${{ steps.resolve.outputs.tag }}
@@ -43,8 +47,12 @@ jobs:
         id: resolve
         env:
           GH_TOKEN: ${{ github.token }}
+          REQUESTED_NIGHTLY_TAG: ${{ inputs.nightly_tag || '' }}
         run: |
-          tag=$(gh api repos/roc-lang/nightlies/releases/latest --jq .tag_name)
+          tag="$REQUESTED_NIGHTLY_TAG"
+          if [[ -z "$tag" ]]; then
+            tag=$(gh api repos/roc-lang/nightlies/releases/latest --jq .tag_name)
+          fi
           [[ "$tag" =~ ^nightly-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{7,40}$ ]]
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "Testing $tag" >> "$GITHUB_STEP_SUMMARY"
@@ -90,17 +98,17 @@ jobs:
           python-version: "3.13"
 
       - name: Install locked Blueprint environment
-        uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8454f8ed9acc026c85e31e87b132dfeeaf9f1b81
+        uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@acc5efdcd929b38e665cd3ae6e694d1c4887f9c7
         with:
           cache: 'true'
           cache-workload: platform-host
+          sha256-x86_64-linux: 75c0bafa081773da2a6210b5238ab6da0eef87ece8d4acecf7ad497e03adf796
 
       - run: blueprint check
 
       - name: Install resolved Roc nightly
-        uses: roc-lang/setup-roc@dd81390553b0a1236aedb61cdd4c0ed7cf7eaec4
+        uses: lukewilliamboswell/roc-automation/actions/setup-roc-nightly@acc5efdcd929b38e665cd3ae6e694d1c4887f9c7
         with:
-          version: nightly-new-compiler
           nightly-tag: ${{ needs.compiler.outputs.tag }}
 
       - run: blueprint run check
@@ -212,9 +220,8 @@ jobs:
           path: ci-artifacts/apps-linux-x64
 
       - name: Install the same resolved Roc nightly
-        uses: roc-lang/setup-roc@dd81390553b0a1236aedb61cdd4c0ed7cf7eaec4
+        uses: lukewilliamboswell/roc-automation/actions/setup-roc-nightly@acc5efdcd929b38e665cd3ae6e694d1c4887f9c7
         with:
-          version: nightly-new-compiler
           nightly-tag: ${{ needs.compiler.outputs.tag }}
 
       - name: Link and run the exact release archive
