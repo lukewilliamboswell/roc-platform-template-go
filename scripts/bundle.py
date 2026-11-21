@@ -43,10 +43,10 @@ MINGW_INPUTS = (
 TARGET_INPUTS = {
     "x64mac": ("libhost.a",),
     "arm64mac": ("libhost.a",),
-    "x64musl": ("crt1.o", "libhost.a", "libc.a", "libzigc.a", "libcompiler_rt.a"),
-    "x64v1musl": ("crt1.o", "libhost.a", "libc.a", "libzigc.a", "libcompiler_rt.a"),
-    "arm64musl": ("crt1.o", "libhost.a", "libc.a", "libzigc.a", "libcompiler_rt.a"),
-    "arm64v1musl": ("crt1.o", "libhost.a", "libc.a", "libzigc.a", "libcompiler_rt.a"),
+    "x64musl": ("rcrt1.o", "libhost.a", "libc.a", "libzigc.a", "libcompiler_rt.a"),
+    "x64v1musl": ("rcrt1.o", "libhost.a", "libc.a", "libzigc.a", "libcompiler_rt.a"),
+    "arm64musl": ("rcrt1.o", "libhost.a", "libc.a", "libzigc.a", "libcompiler_rt.a"),
+    "arm64v1musl": ("rcrt1.o", "libhost.a", "libc.a", "libzigc.a", "libcompiler_rt.a"),
     "x64mingw": MINGW_INPUTS,
     "x64v1mingw": MINGW_INPUTS,
 }

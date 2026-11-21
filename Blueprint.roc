@@ -1,6 +1,6 @@
 # Product code uses the latest nightly supplied as bare `roc`.
 # Blueprint locks native toolchain downloads separately from that compiler.
-app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.8.0/FbJymjYdCxx9vqMcau7r4tQfeAbnVGqqJoYrLGqPCqKu.tar.zst" }
+app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.14.0/Erv2CTy8LJML6JuhvQ3WcmFpXSA6FnGPcfDTi1iFX9B8.tar.zst" }
 
 import pf.Config
 import pf.Recipes
@@ -29,7 +29,7 @@ config = [
 	Systems(["x86_64-linux", "aarch64-linux", "aarch64-darwin"]),
 	Environment("source", [Expect(["python", "roc", "git", "gh"])]),
 	Environment("host", [Programs([Fetch("go", go_tool), Fetch("zig", zig_tool)]), Expect(["python", "roc", "git", "gh", "sh"])]),
-	Environment("sbom", [Programs([Fetch("blueprint-sbom", Recipes.file("https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.8.0/blueprint-sbom-{system}"))]), Expect(["python", "blueprint", "git", "roc", "tar", "zstd"])]),
+	Environment("sbom", [Programs([Fetch("blueprint-sbom", Recipes.file("https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.14.0/blueprint-sbom-{system}"))]), Expect(["python", "blueprint", "git", "roc", "tar", "zstd"])]),
 	Task("sbom", [Use("sbom"), Run(["python", "scripts/sbom.py"])]),
 	Task("check", [Use("source"), Run(["python", "scripts/check.py"])]),
 	Task("fetch-runtime", [Use("source"), Run(["python", "scripts/fetch_runtime.py"])]),

@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROBE = SCRIPT_DIR / "runtime_probe.c"
 REQUIRED_ZIG_VERSION = json.loads((SCRIPT_DIR / "runtime_sources.json").read_text())["zig"]["version"]
-MUSL_ARTIFACTS = ("crt1.o", "libc.a", "libzigc.a", "libcompiler_rt.a")
+MUSL_ARTIFACTS = ("rcrt1.o", "libc.a", "libzigc.a", "libcompiler_rt.a")
 MINGW_COMPILED_ARCHIVES = ("libmingw32.lib", "zigc.lib", "compiler_rt.lib")
 MINGW_IMPORT_LIBRARIES = (
     "api-ms-win-crt-conio-l1-1-0.lib",
@@ -172,6 +172,7 @@ def build_musl_runtime(
             "-target",
             zig_target,
             "-static",
+            "-fPIE",
             "-O2",
             "-g0",
             "-fno-sanitize=all",
@@ -207,11 +208,23 @@ def build_musl_runtime(
         snapshot = target_work / f"raw-{name}"
         shutil.copy2(source, snapshot)
         snapshots[name] = snapshot
-    crt = output_dir / "crt1.o"
-    shutil.copy2(snapshots["crt1.o"], crt)
+    crt = output_dir / "rcrt1.o"
+    shutil.copy2(snapshots["rcrt1.o"], crt)
     canonicalize(crt, work_dir)
     for name in MUSL_ARTIFACTS[1:]:
         normalize_archive(snapshots[name], output_dir / name, work_dir)
+
+    # Verify the normalized payload without letting the driver supply its own
+    # startup or archives: a regular crt1.o or non-PIC libc cannot link a PIE.
+    cc = ["zig", "cc", "-target", zig_target, "-fPIE"]
+    probe_object = target_work / "consumer.o"
+    run([*cc, "-O2", "-c", str(PROBE), "-o", str(probe_object)], env=env)
+    run(
+        [*cc, "-static", "-nostdlib", str(crt), str(probe_object),
+         *(str(output_dir / name) for name in MUSL_ARTIFACTS[1:]),
+         "-o", str(target_work / "consumer")],
+        env=env,
+    )
 
 
 def build_mingw_runtime(

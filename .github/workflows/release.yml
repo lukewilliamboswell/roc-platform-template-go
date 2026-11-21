@@ -6,6 +6,10 @@ on:
         description: Final product version (for example 0.1.0)
         type: string
         required: true
+      nightly-tag:
+        description: Exact Roc nightly to validate and publish with (defaults to latest)
+        type: string
+        required: false
 permissions: {}
 concurrency:
   group: platform-release
@@ -18,6 +22,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
     with:
       release_version: ${{ inputs.version }}
+      nightly_tag: ${{ inputs.nightly-tag || '' }}
   publish:
     needs: validate
     runs-on: ubuntu-24.04
@@ -36,7 +41,7 @@ jobs:
             candidate/release/*.tar.zst
             candidate/release/*.zip
             candidate/release/*.json
-      - uses: lukewilliamboswell/roc-automation/actions/publish-release@8454f8ed9acc026c85e31e87b132dfeeaf9f1b81
+      - uses: lukewilliamboswell/roc-automation/actions/publish-release@acc5efdcd929b38e665cd3ae6e694d1c4887f9c7
         with:
           version: ${{ inputs.version }}
           prerelease: 'false'

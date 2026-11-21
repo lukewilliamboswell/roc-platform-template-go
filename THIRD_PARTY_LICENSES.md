@@ -10,7 +10,7 @@ in each platform bundle. Host source is licensed under this project's UPL-1.0.
 The files below are supplied as static-link inputs in the runtime release and installed under
 `platform/targets/{x64musl,x64v1musl,arm64musl,arm64v1musl}/`:
 
-- `crt1.o` and `libc.a`: musl libc 1.2.5 with Zig's security backports
+- `rcrt1.o` and `libc.a`: musl libc 1.2.5 with Zig's security backports
 - `libzigc.a`: Zig libc 0.16.0
 - `libcompiler_rt.a`: compiler runtime emitted by Zig 0.16.0
 

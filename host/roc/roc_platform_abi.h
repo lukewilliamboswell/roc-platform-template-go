@@ -12,6 +12,15 @@
  * count reaches zero, which is what compiled Roc code does when it drops one
  * it owns. Releasing the elements unconditionally double-frees them whenever
  * the Roc caller still holds the container.
+ *
+ * Opaque values:
+ * A RocBox whose payload type the application chooses, and a RocOpaqueList,
+ * refer to values whose layout this header cannot describe. The host may
+ * store them, retain them, and pass them back to Roc. It cannot release
+ * them, and neither can it release a record, tag union, box, or list that
+ * holds one: the allocation header and the payload teardown both depend on
+ * the missing layout. Pass the value to a Roc function that takes ownership
+ * of it instead.
  */
 
 #ifndef ROC_PLATFORM_ABI_H
@@ -138,6 +147,10 @@ ROC_STATIC_ASSERT(offsetof(RocList, elements) == 0, "RocList.elements offset mis
 ROC_STATIC_ASSERT(offsetof(RocList, length) == sizeof(size_t), "RocList.length offset mismatch");
 ROC_STATIC_ASSERT(offsetof(RocList, capacity_or_alloc_ptr) == 2 * sizeof(size_t), "RocList.capacity_or_alloc_ptr offset mismatch");
 
+/* A list whose items are, or hold, values of a type the application chooses.
+ * The host cannot allocate or release one; see "Opaque values" above. */
+typedef RocList RocOpaqueList;
+
 typedef void* RocBox;
 
 struct RocOps;
@@ -148,6 +161,8 @@ typedef void (*RocErasedCallableOnDrop)(uint8_t* capture, struct RocOps* ops);
 typedef struct {
     RocErasedCallableFn callable_fn_ptr;
     RocErasedCallableOnDrop on_drop;
+    void (*on_copy)(uint8_t* capture, intptr_t amount);
+    size_t capture_size;
 } RocErasedCallablePayload;
 ROC_STATIC_ASSERT(offsetof(RocErasedCallablePayload, callable_fn_ptr) == 0, "RocErasedCallablePayload.callable_fn_ptr offset mismatch");
 ROC_STATIC_ASSERT(offsetof(RocErasedCallablePayload, on_drop) == sizeof(RocErasedCallableFn), "RocErasedCallablePayload.on_drop offset mismatch");

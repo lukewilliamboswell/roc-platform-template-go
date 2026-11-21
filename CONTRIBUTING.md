@@ -12,7 +12,7 @@ Use the [shared documentation guide](https://lukewilliamboswell.github.io/roc-au
 
 ## Toolchains
 
-Install Blueprint 0.8.0, Python 3.11 or newer, GitHub CLI and the latest Roc
+Install Blueprint 0.14.0, Python 3.11 or newer, GitHub CLI and the latest Roc
 nightly. `Blueprint.roc` declares Go 1.27.0 and Zig 0.16.0; `Blueprint.lock`
 records the exact downloads. The supported Blueprint development environments
 are Linux x64/ARM64 and Apple Silicon macOS. Native Windows and Intel macOS
