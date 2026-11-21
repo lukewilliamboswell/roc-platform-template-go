@@ -6,7 +6,7 @@
   "symbols": [
     "___bzero", "___error", "___memcpy_chk", "___stderrp", "___stdinp", "_abort",
     "_arc4random_buf", "_bzero", "_clock_gettime", "_close", "_closedir", "_dup", "_dup2",
-    "_execve", "_exit", "_fcntl", "_fdopendir", "_fdopendir$INODE64", "_ferror", "_fgetc",
+    "_execve", "_exit", "_fcntl", "_fdopendir", "_fdopendir$INODE64", "_ferror", "_fgetc", "_fmod", "_fmodf",
     "_fprintf", "_fputc", "_free", "_fstat", "_fstat64", "_fstatat", "_fstatat64", "_fwrite", "_getcwd",
     "_getpid", "_getrlimit", "_issetugid", "_kevent", "_kill", "_kqueue", "_lseek",
     "_lstat", "_lstat64", "_mach_absolute_time", "_mach_timebase_info", "_madvise", "_malloc",
