@@ -1,6 +1,6 @@
 # Product code uses the latest nightly supplied as bare `roc`.
 # Blueprint locks native toolchain downloads separately from that compiler.
-app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.14.0/Erv2CTy8LJML6JuhvQ3WcmFpXSA6FnGPcfDTi1iFX9B8.tar.zst" }
+app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.15.0-rc.1/FwWWY6PczB7QsUoWKgaLTuBGGajLjfA4MhaLD36sJxrN.tar.zst" }
 
 import pf.Config
 import pf.Recipes
@@ -18,7 +18,7 @@ go_tool = |system|
 zig_tool : System -> Config.Download
 zig_tool = |system|
 	match system {
-		"x86_64-linux" => Archive("https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz", TarXz, "zig-x86_64-linux-0.16.0/zig")
+		"x86_64-linux" => Mirrored(Archive("https://pkg.hexops.org/zig/zig-x86_64-linux-0.16.0.tar.xz", TarXz, "zig-x86_64-linux-0.16.0/zig"), ["https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz"])
 		"aarch64-linux" => Archive("https://ziglang.org/download/0.16.0/zig-aarch64-linux-0.16.0.tar.xz", TarXz, "zig-aarch64-linux-0.16.0/zig")
 		"aarch64-darwin" => Archive("https://ziglang.org/download/0.16.0/zig-aarch64-macos-0.16.0.tar.xz", TarXz, "zig-aarch64-macos-0.16.0/zig")
 		_ => Unavailable
@@ -29,7 +29,7 @@ config = [
 	Systems(["x86_64-linux", "aarch64-linux", "aarch64-darwin"]),
 	Environment("source", [Expect(["python", "roc", "git", "gh"])]),
 	Environment("host", [Programs([Fetch("go", go_tool), Fetch("zig", zig_tool)]), Expect(["python", "roc", "git", "gh", "sh"])]),
-	Environment("sbom", [Programs([Fetch("blueprint-sbom", Recipes.file("https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.14.0/blueprint-sbom-{system}"))]), Expect(["python", "blueprint", "git", "roc", "tar", "zstd"])]),
+	Environment("sbom", [Programs([Fetch("blueprint-sbom", Recipes.file("https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.15.0-rc.1/blueprint-sbom-{system}"))]), Expect(["python", "blueprint", "git", "roc", "tar", "zstd"])]),
 	Task("sbom", [Use("sbom"), Run(["python", "scripts/sbom.py"])]),
 	Task("check", [Use("source"), Run(["python", "scripts/check.py"])]),
 	Task("fetch-runtime", [Use("source"), Run(["python", "scripts/fetch_runtime.py"])]),

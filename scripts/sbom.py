@@ -115,7 +115,7 @@ def generate(directory, version):
             (work / 'Spec').write_text(spec_text)
             run('blueprint-sbom', 'inspect', str(work / 'Spec'), str(ROOT / 'Blueprint.lock'), str(work / 'composition.json'), 'source', str(work / 'inventory.json'), '--members', str(listing))
             write(work / 'subject.json', dict(filename=asset.name, version=version, target='source', sha256='', url=f'{REPO}/releases/download/{version}/{asset.name}'))
-            write(work / 'context.json', dict(namespace=f'{REPO}/sbom/{sha}/{asset.name}/revision-1', revision='1', created=created, author='Person: Luke Boswell', generator='Tool: blueprint-sbom-0.14.0'))
+            write(work / 'context.json', dict(namespace=f'{REPO}/sbom/{sha}/{asset.name}/revision-1', revision='1', created=created, author='Person: Luke Boswell', generator='Tool: blueprint-sbom-0.15.0-rc.1'))
             run('blueprint-sbom', 'bind', str(work / 'inventory.json'), str(work / 'subject.json'), str(work / 'context.json'), str(asset))
             run('blueprint-sbom', 'check', '--manifest', str(asset) + '.sbom-manifest.json', '--inventory', str(work / 'inventory.json'), '--artifacts', str(directory))
             shutil.copyfile(work / 'inventory.json', directory / (asset.name + '.inventory.json'))
