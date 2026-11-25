@@ -18,7 +18,7 @@ go_tool = |system|
 zig_tool : System -> Config.Download
 zig_tool = |system|
 	match system {
-		"x86_64-linux" => Archive("https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz", TarXz, "zig-x86_64-linux-0.16.0/zig")
+		"x86_64-linux" => Mirrored(Archive("https://pkg.hexops.org/zig/zig-x86_64-linux-0.16.0.tar.xz", TarXz, "zig-x86_64-linux-0.16.0/zig"), ["https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz"])
 		"aarch64-linux" => Archive("https://ziglang.org/download/0.16.0/zig-aarch64-linux-0.16.0.tar.xz", TarXz, "zig-aarch64-linux-0.16.0/zig")
 		"aarch64-darwin" => Archive("https://ziglang.org/download/0.16.0/zig-aarch64-macos-0.16.0.tar.xz", TarXz, "zig-aarch64-macos-0.16.0/zig")
 		_ => Unavailable
