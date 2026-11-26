@@ -41,7 +41,7 @@ jobs:
             candidate/release/*.tar.zst
             candidate/release/*.zip
             candidate/release/*.json
-      - uses: lukewilliamboswell/roc-automation/actions/publish-release@acc5efdcd929b38e665cd3ae6e694d1c4887f9c7
+      - uses: lukewilliamboswell/roc-automation/actions/publish-release@ca31a848926b19ec2aed867c481ef691b55aaeb8
         with:
           version: ${{ inputs.version }}
           prerelease: 'false'
