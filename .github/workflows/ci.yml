@@ -98,7 +98,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install locked Blueprint environment
-        uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@acc5efdcd929b38e665cd3ae6e694d1c4887f9c7
+        uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@ca31a848926b19ec2aed867c481ef691b55aaeb8
         with:
           cache: 'true'
           cache-workload: platform-host
